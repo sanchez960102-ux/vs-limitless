@@ -3,7 +3,7 @@
 window.VSL_CONFIG = {
   supabaseUrl: "",      // https://xxxx.supabase.co
   supabaseAnonKey: "",  // Project Settings → API → anon public
-  correoAvisos: "",     // correo donde Vic recibe cada aplicación
+  correoAvisos: "laf.victor.sanchez@gmail.com", // correo donde Vic recibe cada aplicación
   // Planes sin lugares: el botón cambia a lista de espera. Ej. ["Élite"]
   listaEspera: []
 };
