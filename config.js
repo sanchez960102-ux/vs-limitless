@@ -1,8 +1,8 @@
 // Configuración de la landing. Solo valores públicos: la clave "anon" de Supabase
 // está pensada para ir en el navegador; la tabla solo acepta inserciones.
 window.VSL_CONFIG = {
-  supabaseUrl: "",      // https://xxxx.supabase.co
-  supabaseAnonKey: "",  // Project Settings → API → anon public
+  supabaseUrl: "https://hdexemursvsjtiuedhmv.supabase.co",
+  supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkZXhlbXVyc3ZzanRpdWVkaG12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU0NzI0MjEsImV4cCI6MjExMTA0ODQyMX0.hg9ZWu_DDjtg24jvvtIfiOQLV6qjw00TglvsKw3mMAs",
   correoAvisos: "laf.victor.sanchez@gmail.com", // correo donde Vic recibe cada aplicación
   // Planes sin lugares: el botón cambia a lista de espera. Ej. ["Élite"]
   listaEspera: []
