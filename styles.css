@@ -163,6 +163,10 @@ textarea:focus{border-color:var(--tinta)}
 .check{flex-direction:row;align-items:flex-start;gap:14px;font-size:14px;color:var(--tinta-suave)}
 .check input{width:18px!important;height:18px;margin-top:2px;accent-color:var(--tinta);flex-shrink:0;padding:0}
 .err{border-color:var(--rojo-texto)!important}
+.contador{font:400 12px/1 var(--texto);letter-spacing:.04em;color:var(--tinta-tenue);margin-top:-2px}
+.contador.ok{color:var(--tinta-suave)}
+.contador.ok::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#3fb950;margin-right:8px;vertical-align:middle;position:relative;top:-1px}
+.ayuda{margin:-8px 0 0;font-size:14px;color:var(--tinta-tenue)}
 .form-msg{min-height:24px;color:var(--rojo-texto);font-size:14px;margin:20px 0 0}
 .gracias{border-top:1px solid var(--linea);padding-top:48px}
 .gracias .h-l{margin-bottom:20px}

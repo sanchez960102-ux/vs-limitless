@@ -14,6 +14,23 @@
 
   rango.addEventListener('input', function () { rangoV.textContent = rango.value; });
 
+  // Contador de caracteres para las respuestas escritas
+  form.querySelectorAll('textarea[minlength]').forEach(function (ta) {
+    var min = parseInt(ta.getAttribute('minlength'), 10);
+    var c = document.createElement('span');
+    c.className = 'contador';
+    c.setAttribute('aria-live', 'polite');
+    ta.insertAdjacentElement('afterend', c);
+    function pintar() {
+      var n = ta.value.trim().length;
+      var ok = n >= min;
+      c.classList.toggle('ok', ok);
+      c.textContent = ok ? 'Listo · ' + n + ' caracteres' : 'Mínimo ' + min + ' caracteres · llevas ' + n;
+    }
+    ta.addEventListener('input', pintar);
+    pintar();
+  });
+
   (cfg.listaEspera || []).forEach(function (plan) {
     document.querySelectorAll('[data-plan="' + plan + '"]').forEach(function (b) {
       b.textContent = 'Unirme a la lista de espera';
@@ -103,7 +120,7 @@
     e.preventDefault();
     msg.textContent = '';
     if (!validar()) {
-      msg.textContent = 'Revisa los campos marcados. Las respuestas sobre tu compromiso necesitan al menos un par de líneas.';
+      msg.textContent = 'Revisa los campos marcados. Cada respuesta sobre tu compromiso necesita al menos 20 caracteres, más o menos una oración.';
       return;
     }
     var d = datos();
