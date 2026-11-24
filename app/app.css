@@ -170,3 +170,84 @@ body{background:radial-gradient(120% 55% at 50% -10%,#2a2023 0%,#1A1A1D 55%) fix
 .burbuja{background:#323238}
 .dialogo{background:#232327;border-color:rgba(255,255,255,.1)}
 .acceso input{background:var(--hundido);border-color:#3a3a40}
+
+/* ===== Liquid glass ===== */
+:root{
+  --vidrio:linear-gradient(160deg,rgba(255,255,255,.13) 0%,rgba(255,255,255,.05) 45%,rgba(255,255,255,.07) 100%);
+  --vidrio-borde:rgba(255,255,255,.16);
+  --vidrio-brillo:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -1px 0 rgba(255,255,255,.04),inset 0 0 22px rgba(255,255,255,.035);
+  --vidrio-sombra:0 24px 48px -26px rgba(0,0,0,.85);
+  --vidrio-blur:blur(26px) saturate(1.7) brightness(1.04);
+  --hundido:rgba(10,10,12,.42);
+}
+/* Luz de fondo: el vidrio necesita algo que refractar */
+html{background:#141416}
+body{background:transparent}
+body::before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(38% 30% at 18% 12%,rgba(225,6,0,.55),transparent 70%),
+    radial-gradient(34% 28% at 88% 34%,rgba(242,239,234,.20),transparent 70%),
+    radial-gradient(40% 32% at 30% 78%,rgba(120,24,20,.45),transparent 72%),
+    radial-gradient(36% 30% at 85% 92%,rgba(90,96,120,.30),transparent 70%),
+    #141416;
+  filter:blur(30px);animation:deriva 28s ease-in-out infinite alternate}
+@keyframes deriva{to{transform:translate3d(3%,-4%,0) scale(1.06)}}
+@media (prefers-reduced-motion:reduce){body::before{animation:none}}
+
+.card,.rapido,.stats,.ej,.upsell,.dialogo,.burbuja,.btn-redondo,.avatar,.pildoras button,.demo-banda{
+  background:var(--vidrio);border:1px solid var(--vidrio-borde);
+  -webkit-backdrop-filter:var(--vidrio-blur);backdrop-filter:var(--vidrio-blur);
+  box-shadow:var(--vidrio-brillo),var(--vidrio-sombra)}
+.card,.upsell{position:relative;overflow:hidden}
+/* Reflejo especular en la esquina superior */
+.card::before,.upsell::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(120% 60% at 0% 0%,rgba(255,255,255,.10),transparent 45%)}
+.rapido:hover{border-color:rgba(255,255,255,.3);transform:translateY(-1px)}
+.stat+.stat{border-left-color:rgba(255,255,255,.12)}
+.ico{background:rgba(255,255,255,.10);box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
+.ej-num{background:rgba(255,255,255,.09);box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
+.barra i{background:rgba(255,255,255,.12)}
+.mini-barras i{background:rgba(255,255,255,.18)}
+.area .pt{fill:#1c1c20}
+.pildoras button{color:var(--tinta)}
+
+/* Tarjetas con foto: el vidrio va sobre la foto */
+.entreno{background:rgba(20,20,24,.5);border-color:var(--vidrio-borde);box-shadow:var(--vidrio-brillo),var(--vidrio-sombra)}
+.entreno-foto{width:100%;filter:saturate(.8) contrast(1.05)}
+.entreno-foto::after{background:linear-gradient(90deg,rgba(14,14,16,.55) 0%,rgba(14,14,16,.15) 60%,transparent 100%)}
+.entreno-in{position:relative;z-index:1;margin:10px;max-width:62%;padding:14px 16px;border-radius:18px;
+  background:rgba(22,22,26,.38);border:1px solid rgba(255,255,255,.18);
+  -webkit-backdrop-filter:blur(18px) saturate(1.6);backdrop-filter:blur(18px) saturate(1.6);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.entreno-hecha{background:rgba(20,20,24,.45);border:1px solid rgba(255,255,255,.18);-webkit-backdrop-filter:blur(14px) saturate(1.6);backdrop-filter:blur(14px) saturate(1.6)}
+.portada{border-color:var(--vidrio-borde)}
+
+/* Campos hundidos en el vidrio */
+.ej input,.card input,.card select,.card textarea,.acceso input,.escala.redonda span{
+  background:var(--hundido);border-color:rgba(255,255,255,.12);box-shadow:inset 0 1px 3px rgba(0,0,0,.35)}
+
+/* Barra de navegación tipo cápsula de vidrio */
+.nav{background:linear-gradient(160deg,rgba(255,255,255,.16),rgba(255,255,255,.06));
+  -webkit-backdrop-filter:blur(30px) saturate(1.8);backdrop-filter:blur(30px) saturate(1.8);
+  border:1px solid rgba(255,255,255,.2);border-radius:32px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(255,255,255,.05),0 24px 44px -14px rgba(0,0,0,.9)}
+.nav a{color:#b5b1ac}
+.nav a[aria-current="page"]::before{content:"";position:absolute;inset:8px 4px;border-radius:22px;z-index:-1;
+  background:rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+
+/* Botones: el principal sólido para contraste, el secundario de vidrio */
+.btn{box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 12px 28px -12px rgba(0,0,0,.8)}
+.btn-linea{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.28);
+  -webkit-backdrop-filter:blur(16px) saturate(1.6);backdrop-filter:blur(16px) saturate(1.6);box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
+.btn-rojo{box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 12px 28px -12px rgba(225,6,0,.6)}
+.pildoras button[aria-pressed="true"]{box-shadow:inset 0 1px 0 #fff}
+
+/* Respaldo si el navegador no soporta desenfoque */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .card,.rapido,.stats,.ej,.upsell,.dialogo,.nav,.entreno-in{background:rgba(38,38,43,.94)}
+}
+.entreno-in{min-height:130px}
+.entreno.grande .entreno-in{min-height:170px}
+/* La cápsula necesita más escarcha para que el contenido de atrás no compita con los iconos */
+.nav{background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.04)),rgba(24,24,28,.62);
+  -webkit-backdrop-filter:blur(40px) saturate(1.8);backdrop-filter:blur(40px) saturate(1.8)}
