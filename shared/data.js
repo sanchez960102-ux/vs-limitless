@@ -68,7 +68,18 @@ async function crearSupabase() {
     async entrarConClave(correo, clave) { ok(await sb.auth.signInWithPassword({ email: correo, password: clave })); },
     async crearClave(clave) { ok(await sb.auth.updateUser({ password: clave })); },
     async salir() { await sb.auth.signOut(); },
-    alCambiarSesion(fn) { sb.auth.onAuthStateChange((_e, s) => fn(s)); },
+    // Solo reacciona cuando cambia el usuario, y fuera del aviso de Supabase:
+    // volver a pedir la sesión dentro del aviso bloquea la app (se queda cargando).
+    alCambiarSesion(fn) {
+      let ultimo;
+      sb.auth.onAuthStateChange((evento, s) => {
+        const id = s?.user?.id || null;
+        if (evento === 'INITIAL_SESSION') { ultimo = id; return; }
+        if (id === ultimo) return;
+        ultimo = id;
+        setTimeout(() => fn(s), 0);
+      });
+    },
     async yo() { const id = await uid(); if (!id) return null; return ok(await sb.from('perfiles').select('*').eq('id', id).maybeSingle()); },
 
     // Miembro
