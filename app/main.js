@@ -19,6 +19,7 @@ const ICONOS = {
   tecnica: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3z"/></svg>',
   progreso: '<svg viewBox="0 0 24 24"><path d="M5 19V11M12 19V5M19 19v-6"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>',
+  nutricion: '<svg viewBox="0 0 24 24"><path d="M12 21c-4.5 0-7-3.2-7-7.2C5 9.6 8 7 12 8c4-1 7 1.6 7 5.8 0 4-2.5 7.2-7 7.2z"/><path d="M12 8c0-2 1-3.5 3-4.5"/></svg>',
   candado: '<svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="3"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>',
   llamada: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3z"/><circle cx="9.5" cy="12" r="2"/></svg>'
 };
@@ -261,7 +262,7 @@ function enrutar() {
   const activa = ruta === 'sesion' ? 'plan' : ruta;
   $$('.nav a').forEach(a => a.dataset.r === activa ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
   const v = $('#vista'); cargando(v); window.scrollTo(0, 0);
-  const vistas = { hoy: vistaHoy, plan: vistaPlan, sesion: vistaSesion, checkin: vistaCheckin, tecnica: vistaTecnica, progreso: vistaProgreso };
+  const vistas = { hoy: vistaHoy, plan: vistaPlan, sesion: vistaSesion, checkin: vistaCheckin, tecnica: vistaTecnica, progreso: vistaProgreso, nutricion: vistaNutricion };
   if (ruta === 'cuenta') { history.replaceState(null, '', '#/hoy'); $('#perfil').click(); return enrutar(); }
   (vistas[ruta] || vistaHoy)(v, param).then(() => { if (!ruta || ruta === 'hoy') v.insertAdjacentHTML('afterbegin', bandaPago()); }).catch(err => { console.error(err); v.innerHTML = vacio('Algo salió mal', 'Recarga la página o intenta en un momento.'); });
 }
@@ -362,6 +363,7 @@ async function vistaHoy(v) {
         : `<a class="rapido bloqueado" href="#/tecnica"><span class="ico">${ICONOS.candado}</span><span>Subir técnica<small>Disponible en ${planMinimo('tecnicaVideo')} · Mejorar plan</small></span></a>`}
       <a class="rapido" href="#/progreso"><span class="ico hueso">${ICONOS.progreso}</span><span>Mi progreso<small>${regs.filter(r => r.completada).length} sesiones</small></span></a>
     </div>
+    <a class="rapido ancho" href="#/nutricion"><span class="ico hueso">${ICONOS.nutricion}</span><span>Guía de nutrición<small>Porciones, hidratación y qué comer alrededor del entreno</small></span></a>
     ${puede(yo.plan, 'videollamada')
       ? (linkVideollamada() ? `<a class="rapido ancho" href="${linkVideollamada()}" target="_blank" rel="noopener"><span class="ico rojo">${ICONOS.llamada}</span><span>Videollamada con Vic<small>Cada ${permisos(yo.plan).videollamada.cadaDias} días · toca para agendar</small></span></a>` : '')
       : `<div class="rapido ancho bloqueado"><span class="ico">${ICONOS.candado}</span><span>Videollamada con Vic<small>${textoCandado('videollamada')}</small></span></div>`}`;
@@ -542,6 +544,56 @@ async function vistaCheckin(v) {
       aviso('Check-in enviado. Vic te responde pronto.'); enrutar();
     } catch (err) { btn.disabled = false; aviso('No se pudo enviar. Intenta de nuevo.', 'error'); }
   };
+}
+
+/* ---------------------------------------------------------- Nutrición */
+async function vistaNutricion(v) {
+  const [an, meds] = await Promise.all([db.anamnesis(yo.id).catch(() => null), db.composicion(yo.id).catch(() => [])]);
+  const d = an?.datos || {};
+  const peso = Number(meds.at(-1)?.peso || d.peso) || null;
+  const cuidado = (d.condiciones || []).some(c => c !== 'Ninguna') || ['Embarazada', 'Posparto'].includes(d.embarazo) || (d.medicamentos && !/^ningun/i.test(d.medicamentos.trim()));
+  const r5 = x => Math.round(x / 5) * 5;
+  const sec = (titulo, cuerpo, abierta = false) => `<details class="card guia-sec" ${abierta ? 'open' : ''}><summary>${titulo}</summary><div class="guia-cuerpo">${cuerpo}</div></details>`;
+  v.innerHTML = `
+    <div class="top-bar"><button class="btn-redondo" type="button" onclick="history.back()" aria-label="Volver">←</button><h1>Guía de nutrición</h1></div>
+    ${notaVic('De Vic', 'Esta guía no es una dieta ni un plan de alimentación. Son los principios que uso para que comas en función de tu entrenamiento sin pesar comida ni prohibirte nada. Empieza por uno y suma el siguiente cuando ya te salga solo.')}
+    ${cuidado ? `<div class="desbalance"><b>Antes de aplicar esta guía</b><span>Por lo que indicaste en tu anamnesis, confirma estas pautas con tu médico o con un nutricionista.</span></div>` : ''}
+    ${peso ? `<div class="stats nutri">
+      <div class="stat"><small>Proteína al día</small><b>${r5(peso * 1.6)}–${r5(peso * 2.2)} g</b></div>
+      <div class="stat"><small>Agua base</small><b>${(peso * 0.035).toFixed(1)} L</b></div>
+      <div class="stat"><small>Según</small><b>${peso} kg</b></div></div>
+      <p class="tenue" style="font-size:12px;margin:-4px 0 0">Referencias orientativas calculadas con tu último peso registrado.</p>` : ''}
+    ${sec('1 · Arma tu plato con la mano', `
+      <p>En cada comida principal, usa tu mano como medida. Va contigo a todos lados y se ajusta a tu tamaño.</p>
+      <ul class="mano">
+        <li><b>Proteína · 1 a 2 palmas</b><span>Pollo, huevo, carne magra, pescado, atún, queso fresco, yogur griego, frijol con arroz.</span></li>
+        <li><b>Verduras · 1 a 2 puños</b><span>Las que te gusten, cocidas o crudas. Entre más color, mejor.</span></li>
+        <li><b>Carbohidratos · 1 a 2 manos ahuecadas</b><span>Tortilla, arroz, papa, plátano, avena, pan, fruta. Más en días de carrera larga o doble sesión.</span></li>
+        <li><b>Grasas · 1 a 2 pulgares</b><span>Aguacate, aceite de oliva, manías, crema de maní, semillas.</span></li>
+      </ul>
+      <p class="tenue">Como punto de partida, una porción de cada una si eres mujer y dos si eres hombre. Ajusta según tu hambre, tu energía y tu progreso.</p>`, true)}
+    ${sec('2 · Proteína en cada comida', `
+      <p>Es lo que más te ayuda a recuperarte y a conservar o ganar músculo. La referencia para personas que entrenan es de 1.6 a 2.2 g por kilo de peso al día, repartida en 3 o 4 comidas.</p>
+      <p>Si se te complica, empieza por algo simple: que ninguna comida principal quede sin su palma de proteína.</p>`)}
+    ${sec('3 · Hidratación', `
+      <p>Una referencia base es unos 35 ml por kilo de peso al día, más medio litro a 750 ml por cada hora de entrenamiento.</p>
+      <p>La mejor señal es tu orina: clara o amarillo pálido. Con calor o sesiones de más de una hora, agrega una pizca de sal o una bebida con electrolitos.</p>`)}
+    ${sec('4 · Antes y después de entrenar', `
+      <p><b>De 1 a 3 horas antes:</b> carbohidrato con algo de proteína y poca grasa o fibra para no sentirte pesado. Por ejemplo: avena con banano, pan con crema de maní, tortilla con huevo.</p>
+      <p><b>Si entrenas temprano en ayunas:</b> un banano o un pan 20 a 30 minutos antes suele ser suficiente.</p>
+      <p><b>Después:</b> una comida con su palma de proteína y su porción de carbohidrato en las siguientes horas. No hace falta correr a tomar un batido en 30 minutos.</p>`)}
+    ${sec('5 · Carreras y salidas largas', `
+      <p>En sesiones de más de 75 a 90 minutos, tu cuerpo necesita combustible durante el esfuerzo: entre 30 y 60 g de carbohidratos por hora, con geles, bebida deportiva, banano o dulces.</p>
+      <p>Prueba en los entrenamientos lo que vas a usar en tu carrera. Nada nuevo el día del evento.</p>`)}
+    ${sec('6 · Hábitos que más suman', `
+      <ul class="lista-simple">
+        <li>Regla 80/20: come bien la mayor parte del tiempo y disfruta el resto sin culpa.</li>
+        <li>No hay alimentos prohibidos; hay cantidades y frecuencias.</li>
+        <li>El alcohol frena la recuperación y el sueño. Si tomas, que no sea la noche antes de una sesión clave.</li>
+        <li>Dormir 7 a 9 horas pesa tanto como lo que comes.</li>
+        <li>Los suplementos son la última capa: primero comida, sueño y constancia.</li>
+      </ul>`)}
+    <p class="tenue" style="font-size:12px;margin:0">Guía educativa general. No sustituye la consulta con un médico o nutricionista.</p>`;
 }
 
 /* ------------------------------------------------------------ Técnica */
