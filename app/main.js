@@ -360,7 +360,7 @@ async function vistaPlan(v, sem) {
     <div class="pildoras" role="group" aria-label="Semana">${Array.from({ length: bloque.semanas }, (_, i) => i + 1)
       .map(n => `<button type="button" data-s="${n}" aria-pressed="${n === semana}">Semana ${n}${n === actual ? ' ·' : ''}</button>`).join('')}</div>
     ${tipos.length > 2 ? `<div class="pildoras" role="group" aria-label="Tipo">${tipos.map(t => `<button type="button" data-t="${t}" aria-pressed="${t === filtroTipo}">${t === 'todos' ? 'Todos' : TIPO_TXT[t] || t}</button>`).join('')}</div>` : ''}
-    ${bloque.notas && semana === actual ? `<div class="burbuja burbuja-coach"><small>Nota de Vic · ${esc(bloque.nombre)}</small>${esc(bloque.notas)}</div>` : ''}
+    ${bloque.notas && semana === actual ? notaVic(`Nota de Vic · ${esc(bloque.nombre)}`, bloque.notas) : ''}
     ${visibles.map(s => tarjetaEntreno(s)).join('') || `<div class="card">${vacio('Sin sesiones aquí')}</div>`}`;
   $$('[data-s]', v).forEach(b => b.onclick = () => { location.hash = '#/plan/' + b.dataset.s; });
   $$('[data-t]', v).forEach(b => b.onclick = () => { filtroTipo = b.dataset.t; vistaPlan(v, semana); });
@@ -483,7 +483,7 @@ async function vistaCheckin(v) {
       <div class="card" style="display:flex;flex-direction:column;gap:10px">
         <p class="card-t" style="margin:0">${fecha(c.created_at, { weekday: 'short', day: 'numeric', month: 'short' })}<small>${c.peso ? c.peso + ' kg · ' : ''}Sueño ${c.sueno}/5 · Energía ${c.energia}/5</small></p>
         <div class="burbuja"><small>Tú</small>${esc(c.comentario)}</div>
-        ${c.respuesta ? `<div class="burbuja burbuja-coach"><small>Vic</small>${esc(c.respuesta)}</div>` : '<p class="tenue" style="font-size:13px;margin:0">Vic lo revisará pronto.</p>'}
+        ${c.respuesta ? notaVic('Respuesta de Vic', c.respuesta) : '<p class="tenue" style="font-size:13px;margin:0">Vic lo revisará pronto.</p>'}
       </div>`).join('') || `<div class="card">${vacio('Aún no tienes check-ins')}</div>`}</div>`;
   $('#f-checkin').onsubmit = async e => {
     e.preventDefault(); const d = datosForm(e.target);
@@ -524,7 +524,7 @@ async function vistaTecnica(v) {
         <div class="ej-cab"><span class="ico ${vd.estado === 'revisado' ? 'hueso' : 'rojo'}">${ICONOS.tecnica}</span>
           <div><h3>${esc(vd.ejercicio)}</h3><p>${fecha(vd.created_at)}${vd.nota ? ' · ' + esc(vd.nota) : ''}</p></div>
           <span class="chip ${vd.estado === 'revisado' ? 'chip-ok' : 'chip-ambar'}">${vd.estado === 'revisado' ? 'Revisado' : 'Pendiente'}</span></div>
-        ${vd.comentario ? `<div class="burbuja burbuja-coach" style="margin-top:12px"><small>Vic</small>${esc(vd.comentario)}</div>` : ''}
+        ${vd.comentario ? `<div style="margin-top:12px">${notaVic('Corrección de Vic', vd.comentario)}</div>` : ''}
         ${vd.ruta ? `<button class="link" type="button" data-ver="${esc(vd.ruta)}" style="margin-top:12px">Ver video</button>` : ''}
       </div>`).join('') || `<div class="card">${vacio('Aún no subes videos')}</div>`}</div>`;
   $$('[data-ver]', v).forEach(b => b.onclick = async () => {

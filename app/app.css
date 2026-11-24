@@ -344,3 +344,4 @@ body::before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .test-d{margin:4px 0 0;font:600 12px var(--texto);color:var(--tinta-suave)}
 .test-d.sube{color:#7ee787}.test-d.baja{color:#ff8a80}
 .test-v{font:400 24px/1 var(--display);white-space:nowrap}
+.burbuja-coach{background:linear-gradient(160deg,rgba(242,239,234,.16),rgba(242,239,234,.07));color:var(--tinta);border-left:3px solid var(--rojo)}
