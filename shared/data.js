@@ -169,6 +169,14 @@ async function crearSupabase() {
         { clave: 'cobro_whatsapp', valor: a.whatsapp || '' },
         { clave: 'cobro_gracia', valor: String(a.gracia ?? 5) }]));
     },
+    async tests() { return ok(await sb.from('tests').select('*').eq('activo', true).order('orden').order('nombre')); },
+    async guardarTest(t) { return ok(await sb.from('tests').upsert(t).select().single()); },
+    async resultadosTest(mid) { return ok(await sb.from('resultados_test').select('*').eq('miembro_id', mid).order('fecha').order('created_at')); },
+    async guardarResultadoTest(r) {
+      if (r.item_id) return ok(await sb.from('resultados_test').upsert(r, { onConflict: 'item_id' }).select().single());
+      return ok(await sb.from('resultados_test').insert(r).select().single());
+    },
+    async borrarResultadoTest(id) { ok(await sb.from('resultados_test').delete().eq('id', id)); },
     async anamnesis(mid) { return ok(await sb.from('anamnesis').select('*').eq('miembro_id', mid).maybeSingle()); },
     async anamnesisTodas() { return ok(await sb.from('anamnesis').select('miembro_id, completada, alerta_salud, revisada_at, paso')); },
     async guardarAnamnesis(mid, cambios) { return ok(await sb.from('anamnesis').upsert({ miembro_id: mid, ...cambios, updated_at: new Date().toISOString() }).select().single()); },
@@ -215,6 +223,17 @@ function crearDemo() {
     perfiles: [coach, ana, luis],
     bloques: [{ id: 'b1', miembro_id: 'ana', nombre: 'Bloque 1 · Base aeróbica + fuerza', fecha_inicio: iso(iniBloque), semanas: 4, notas: 'Construir base sin lesionarse.', activo: true, created_at: hace(14) }],
     sesiones: [], items: [], registros: [], checkins: [], videos: [], invitaciones: [],
+    tests: [
+      { id: 't-cooper', nombre: 'Test de Cooper (12 min)', categoria: 'carrera', unidad: 'm', mejor: 'mayor', distancia: null, calculo: 'cooper', protocolo: 'Calienta 10 min trotando suave. Corre la mayor distancia posible en 12 minutos. Anota los metros totales.', orden: 1 },
+      { id: 't-5k', nombre: '5 km contrarreloj', categoria: 'carrera', unidad: 'tiempo', mejor: 'menor', distancia: 5000, calculo: 'ritmo', protocolo: 'Calienta 15 min. Corre 5 km al mejor ritmo que puedas sostener, en terreno plano. Anota el tiempo total.', orden: 4 },
+      { id: 't-sentadilla', nombre: 'Sentadilla · RM estimado', categoria: 'fuerza', unidad: 'kg_reps', mejor: 'mayor', distancia: null, calculo: '1rm', protocolo: 'Calienta con 2–3 series progresivas. Elige un peso que puedas mover entre 3 y 8 repeticiones con buena técnica. Anota el peso y las repeticiones.', orden: 10 },
+      { id: 't-flexiones', nombre: 'Flexiones máximas', categoria: 'fuerza', unidad: 'reps', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Cuerpo en línea recta, pecho hasta un puño del suelo. Máximas repeticiones continuas.', orden: 15 },
+      { id: 't-plancha', nombre: 'Plancha frontal máxima', categoria: 'funcional', unidad: 'tiempo', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Apoyo en antebrazos, cuerpo alineado. Detén el tiempo cuando la cadera caiga o se eleve.', orden: 20 },
+      { id: 't-tobillo', nombre: 'Dorsiflexión de tobillo (rodilla a la pared)', categoria: 'movilidad', unidad: 'cm', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Lleva la rodilla a la pared sin despegar el talón y mide la distancia máxima del dedo gordo a la pared.', orden: 31 }],
+    resultados: [
+      { id: 'r1', miembro_id: 'ana', test_id: 't-5k', item_id: null, valor: 1860, detalle: null, fecha: iso(new Date(Date.now() - 19 * 86400000)), created_at: hace(19) },
+      { id: 'r2', miembro_id: 'ana', test_id: 't-sentadilla', item_id: null, valor: 46.5, detalle: '40 kg × 5', fecha: iso(new Date(Date.now() - 18 * 86400000)), created_at: hace(18) },
+      { id: 'r3', miembro_id: 'ana', test_id: 't-plancha', item_id: null, valor: 75, detalle: null, fecha: iso(new Date(Date.now() - 18 * 86400000)), created_at: hace(18) }],
     anamnesis: [{ miembro_id: 'ana', paso: 6, completada: true, alerta_salud: true, completada_at: hace(20), revisada_at: null, datos: {
       nacimiento: '1994-03-12', sexo: 'Mujer', estatura: '163', peso: '64.2', ocupacion: 'Contadora', actividad_laboral: 'Sentado', emergencia_nombre: 'Carlos López (esposo)', emergencia_tel: '+502 5555 0000',
       parq: ['No', 'No', 'No', 'No', 'No', 'Sí', 'No'], condiciones: ['Ninguna'], medicamentos: 'Ninguno', cirugias: '', embarazo: 'No',
@@ -246,6 +265,9 @@ function crearDemo() {
     db.sesiones.push(s);
     p.items.forEach(([ejercicio, series, reps, carga, ritmo, descanso], o) => db.items.push({ id: uuid(), sesion_id: s.id, ejercicio, series, reps, carga, ritmo, descanso, nota: NOTAS_DEMO[ejercicio] || '', video_url: '', orden: o }));
   });
+  const conTest = db.sesiones.find(s => s.semana === 3 && s.dia === 4);
+  if (conTest) [['t-flexiones', 'Flexiones máximas'], ['t-plancha', 'Plancha frontal máxima']].forEach(([tid, nombre], k) =>
+    db.items.push({ id: uuid(), sesion_id: conTest.id, ejercicio: nombre, series: '1', reps: 'Máximo', carga: '', ritmo: '', descanso: '3 min', nota: 'Es test: dalo todo con buena técnica. Con esto ajusto tus cargas del próximo bloque.', video_url: '', orden: 10 + k, test_id: tid }));
   db.sesiones.filter(s => s.semana < 3).forEach((s, k) => { if (k !== 3) db.registros.push({ id: uuid(), sesion_id: s.id, miembro_id: 'ana', completada: true, rpe: 6 + (k % 3), nota: '', resultados: {}, created_at: hace(14 - k * 2) }); });
   const s3 = db.sesiones.find(s => s.semana === 3 && s.dia === 1);
   if (s3) db.registros.push({ id: uuid(), sesion_id: s3.id, miembro_id: 'ana', completada: true, rpe: 7, nota: 'La sentadilla se sintió pesada.', resultados: {}, created_at: hace(1) });
@@ -330,6 +352,11 @@ function crearDemo() {
     async resumenMiembro(m) { return resumen(api, m); },
     async ajustesCobro() { return espera({ ...db.cobro }); },
     async guardarAjustesCobro(a) { db.cobro = { ...a, gracia: Number(a.gracia) }; return espera(); },
+    async tests() { return espera(db.tests.filter(t => t.activo !== false).sort((a, b) => a.orden - b.orden)); },
+    async guardarTest(t) { let x = t.id && db.tests.find(y => y.id === t.id); if (x) Object.assign(x, t); else { x = { id: uuid(), activo: true, orden: 99, ...t }; db.tests.push(x); } return espera(x); },
+    async resultadosTest(mid) { return espera(db.resultados.filter(r => r.miembro_id === mid).sort((a, b) => a.fecha.localeCompare(b.fecha))); },
+    async guardarResultadoTest(r) { let x = r.item_id && db.resultados.find(y => y.item_id === r.item_id); if (x) Object.assign(x, r); else { x = { id: uuid(), fecha: hoyISO(), created_at: new Date().toISOString(), ...r }; db.resultados.push(x); } return espera(x); },
+    async borrarResultadoTest(id) { db.resultados = db.resultados.filter(r => r.id !== id); return espera(); },
     async anamnesis(mid) { return espera(db.anamnesis.find(a => a.miembro_id === mid) || null); },
     async anamnesisTodas() { return espera(db.anamnesis.map(a => ({ ...a }))); },
     async guardarAnamnesis(mid, c) { let a = db.anamnesis.find(x => x.miembro_id === mid); if (!a) { a = { miembro_id: mid, datos: {}, paso: 0, completada: false }; db.anamnesis.push(a); } Object.assign(a, c); return espera(a); },

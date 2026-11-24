@@ -165,3 +165,12 @@ input,select,textarea{background:rgba(10,10,12,.45)!important;border-color:rgba(
 .an-si{color:#ff8a80}
 .an-sec dd ul{margin:6px 0 0;padding-left:18px;font-size:13px}
 @media (max-width:900px){.an-resumen{grid-template-columns:1fr}}
+/* Tests */
+.test-card{display:flex;flex-direction:column;gap:12px}
+.test-cab{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.test-d{margin:0;font:600 13px var(--texto)}.test-d.sube{color:#7ee787}.test-d.baja{color:#ff8a80}
+.derivados{padding:14px 16px;border-radius:16px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.1)}
+.tabla-mini{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+.tabla-mini th{text-align:left;font:500 10px/1 var(--texto);letter-spacing:.14em;text-transform:uppercase;color:var(--tinta-tenue);padding:0 10px 8px 0}
+.tabla-mini td{padding:7px 10px 7px 0;border-top:1px solid rgba(255,255,255,.07)}
+.cap-test{display:flex;flex-direction:column;gap:8px}

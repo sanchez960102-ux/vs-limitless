@@ -2,6 +2,7 @@ import { crearDatos, DIAS, PLANES, TIPOS, semanaActual, diaSemanaHoy, lunesDe, p
 import { $, $$, esc, fecha, hace, aviso, cargando, vacio, datosForm, dialogo, barraProgreso, lineaSVG, registrarSW } from '/shared/ui.js';
 import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
 import { PASOS, alertas, requiereRevisionMedica, htmlResumen, edad } from '/shared/anamnesis.js';
+import { CATEGORIAS, UNIDADES, htmlCaptura, leerCaptura, formatear, cambio, htmlDerivados } from '/shared/tests.js';
 
 const raiz = $('#raiz');
 const URL_APP = location.origin + '/app/';
@@ -48,7 +49,7 @@ function pantallaNoCoach() {
 }
 
 function pintarMarco() {
-  const enlaces = [['miembros', 'Miembros'], ['aplicaciones', 'Aplicaciones'], ['videos', 'Videos']];
+  const enlaces = [['miembros', 'Miembros'], ['aplicaciones', 'Aplicaciones'], ['videos', 'Videos'], ['tests', 'Tests']];
   raiz.innerHTML = `
   ${db.demo ? '<div class="demo-banda"><b>Modo demostración</b> · datos de ejemplo, nada se guarda</div>' : ''}
   <div class="marco">
@@ -81,7 +82,7 @@ function enrutar() {
   const menu = ruta === 'miembro' ? 'miembros' : ruta;
   $$('[data-r]').forEach(a => a.dataset.r === menu ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
   const v = $('#vista'); cargando(v); window.scrollTo(0, 0);
-  const vistas = { miembros: vistaMiembros, aplicaciones: vistaAplicaciones, videos: vistaVideos, miembro: vistaMiembro };
+  const vistas = { miembros: vistaMiembros, aplicaciones: vistaAplicaciones, videos: vistaVideos, miembro: vistaMiembro, tests: vistaTests };
   (vistas[ruta] || vistaMiembros)(v, id, tab).catch(err => { console.error(err); v.innerHTML = vacio('Algo salió mal', err.message || 'Recarga la página.'); });
 }
 
@@ -256,7 +257,7 @@ function activarVideos(v) {
 /* -------------------------------------------------------------- Miembro */
 async function vistaMiembro(v, id, tab = 'plan') {
   const m = await db.miembro(id);
-  const tabs = [['plan', 'Plan'], ['anamnesis', 'Anamnesis'], ['checkins', 'Check-ins'], ['videos', 'Videos'], ['registros', 'Registros'], ['progreso', 'Progreso'], ['pagos', 'Pagos']]
+  const tabs = [['plan', 'Plan'], ['anamnesis', 'Anamnesis'], ['tests', 'Tests'], ['checkins', 'Check-ins'], ['videos', 'Videos'], ['registros', 'Registros'], ['progreso', 'Progreso'], ['pagos', 'Pagos']]
     .filter(([k]) => k !== 'videos' || puedeVideos(m.plan));
   v.innerHTML = `
     <a class="link" href="#/miembros">← Miembros</a>
@@ -290,8 +291,88 @@ async function vistaMiembro(v, id, tab = 'plan') {
     };
   });
   const p = $('#panel'); cargando(p);
-  const paneles = { plan: panelPlan, checkins: panelCheckins, videos: panelVideos, registros: panelRegistros, progreso: panelProgreso, pagos: panelPagos, anamnesis: panelAnamnesis };
+  const paneles = { plan: panelPlan, checkins: panelCheckins, videos: panelVideos, registros: panelRegistros, progreso: panelProgreso, pagos: panelPagos, anamnesis: panelAnamnesis, tests: panelTests };
   await (paneles[tab] || panelPlan)(p, m);
+}
+
+/* --------------------------------------------------------------- Tests */
+async function vistaTests(v) {
+  const tests = await db.tests();
+  v.innerHTML = `
+    <div class="titulo"><div><p class="eyebrow">Evaluación</p><h1 class="h1">Tests</h1></div><button class="btn" id="nuevo-test">Nuevo test</button></div>
+    <p class="suave" style="margin:0;max-width:720px">Agrega cualquier test a una sesión desde el editor de ejercicios. El miembro ve el protocolo y registra su resultado; tú ves su historial y los valores para prescribir en su pestaña Tests.</p>
+    ${Object.entries(CATEGORIAS).map(([k, n]) => {
+      const ts = tests.filter(t => t.categoria === k);
+      return ts.length ? `<section class="vista" style="gap:12px"><p class="eyebrow">${n}</p><div class="lista">${ts.map(t => `
+        <button class="fila" data-t="${t.id}" type="button"><div class="fila-cuerpo"><p class="fila-t">${esc(t.nombre)}</p>
+          <p class="fila-s">${UNIDADES[t.unidad]} · ${t.mejor === 'menor' ? 'menos es mejor' : 'más es mejor'}${t.calculo ? ' · calcula valores para prescribir' : ''}</p></div><span class="link">Editar</span></button>`).join('')}</div></section>` : '';
+    }).join('')}`;
+  $('#nuevo-test').onclick = () => editarTest({}, () => vistaTests(v));
+  $$('[data-t]', v).forEach(b => b.onclick = () => editarTest(tests.find(t => t.id === b.dataset.t), () => vistaTests(v)));
+}
+
+function editarTest(t, alGuardar) {
+  dialogo(`<form class="form" id="f-test"><div><p class="eyebrow">Biblioteca</p><h2 class="h2">${t.id ? 'Editar test' : 'Nuevo test'}</h2></div>
+    <label>Nombre<input name="nombre" required value="${esc(t.nombre || '')}" placeholder="Test de Rockport 1.6 km"></label>
+    <div class="grid2"><label>Categoría<select name="categoria">${Object.entries(CATEGORIAS).map(([k, n]) => `<option value="${k}" ${k === t.categoria ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+      <label>Se mide en<select name="unidad">${Object.entries(UNIDADES).map(([k, n]) => `<option value="${k}" ${k === t.unidad ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
+    <div class="grid2"><label>Mejor resultado<select name="mejor"><option value="mayor" ${t.mejor !== 'menor' ? 'selected' : ''}>Más es mejor</option><option value="menor" ${t.mejor === 'menor' ? 'selected' : ''}>Menos es mejor</option></select></label>
+      <label>Distancia en metros (solo carreras por tiempo)<input name="distancia" type="number" min="100" value="${t.distancia || ''}" placeholder="5000"></label></div>
+    <label>Protocolo para el miembro<textarea name="protocolo" rows="4" required placeholder="Calentamiento, cómo se ejecuta y qué anotar.">${esc(t.protocolo || '')}</textarea></label>
+    <div class="grid2"><button class="btn btn-rojo" type="submit">Guardar</button>${t.id ? '<button class="btn btn-linea" type="button" id="archivar">Quitar de la biblioteca</button>' : ''}</div></form>`, d => {
+    const f = $('#f-test', d);
+    f.onsubmit = async e => {
+      e.preventDefault(); const x = datosForm(e.target);
+      const dist = x.distancia ? Number(x.distancia) : null;
+      const calculo = x.unidad === 'kg_reps' ? '1rm' : x.unidad === 'tiempo' && dist ? 'ritmo' : (t.calculo === 'cooper' ? 'cooper' : null);
+      try { await db.guardarTest({ ...(t.id ? { id: t.id } : {}), nombre: x.nombre.trim(), categoria: x.categoria, unidad: x.unidad, mejor: x.mejor, distancia: dist, calculo, protocolo: x.protocolo.trim() }); d.close(); aviso('Test guardado'); alGuardar(); }
+      catch { aviso('No se pudo guardar el test.', 'error'); }
+    };
+    const arch = $('#archivar', d);
+    if (arch) arch.onclick = async () => { await db.guardarTest({ id: t.id, activo: false }); d.close(); aviso('Test quitado de la biblioteca. Los resultados guardados se conservan.'); alGuardar(); };
+  });
+}
+
+async function panelTests(p, m) {
+  const [tests, rs] = await Promise.all([db.tests(), db.resultadosTest(m.id)]);
+  const f = iso => new Date(iso + 'T12:00:00').toLocaleDateString('es-GT', { day: 'numeric', month: 'short', year: 'numeric' });
+  const grupos = tests.map(t => ({ t, rs: rs.filter(r => r.test_id === t.id) })).filter(g => g.rs.length);
+  p.innerHTML = `
+    <div class="titulo" style="align-items:center"><p class="suave" style="margin:0">${grupos.length ? `${grupos.length} test${grupos.length === 1 ? '' : 's'} con resultados.` : 'Aún no hay resultados.'} Los que el miembro registra en sus sesiones aparecen aquí solos.</p>
+      <button class="btn btn-linea" id="registrar">Registrar resultado</button></div>
+    ${grupos.map(({ t, rs }) => {
+      const ult = rs[rs.length - 1], c = cambio(t, ult.valor, rs[rs.length - 2]?.valor);
+      const mejor = rs.reduce((a, r) => (t.mejor === 'menor' ? Number(r.valor) < Number(a.valor) : Number(r.valor) > Number(a.valor)) ? r : a, rs[0]);
+      return `<div class="tarjeta test-card">
+        <div class="test-cab"><div><p class="eyebrow">${CATEGORIAS[t.categoria]}</p><p class="h3" style="margin:4px 0 0">${esc(t.nombre)}</p></div>
+          <div style="text-align:right"><p class="compromiso" style="margin:0">${esc(formatear(t, ult.valor))}</p><p class="fila-s" style="margin:4px 0 0">${f(ult.fecha)}${ult.detalle ? ' · ' + esc(ult.detalle) : ''}</p></div></div>
+        ${c ? `<p class="test-d ${c.mejora > 0 ? 'sube' : c.mejora < 0 ? 'baja' : ''}">${esc(c.texto)}</p>` : ''}
+        ${rs.length > 1 ? `<p class="fila-s">Mejor marca: ${esc(formatear(t, mejor.valor))} (${f(mejor.fecha)}) · ${rs.length} mediciones</p>` : ''}
+        ${htmlDerivados(t, ult.valor)}
+        ${rs.length > 1 ? `<details><summary class="link" style="cursor:pointer">Historial</summary><div class="lista" style="margin-top:10px">${[...rs].reverse().map(r => `<div class="fila"><div class="fila-cuerpo"><p class="fila-t">${esc(formatear(t, r.valor))}</p><p class="fila-s">${f(r.fecha)}${r.detalle ? ' · ' + esc(r.detalle) : ''}</p></div><button class="link link-peligro" data-borrar="${r.id}" type="button">Borrar</button></div>`).join('')}</div></details>` : `<button class="link link-peligro" data-borrar="${ult.id}" type="button" style="align-self:flex-start">Borrar este resultado</button>`}
+      </div>`;
+    }).join('')}`;
+  $$('[data-borrar]', p).forEach(b => b.onclick = async () => { await db.borrarResultadoTest(b.dataset.borrar); aviso('Resultado borrado'); panelTests(p, m); });
+  $('#registrar', p).onclick = () => {
+    let t = tests[0];
+    dialogo(`<form class="form" id="f-res"><div><p class="eyebrow">Test presencial</p><h2 class="h2">Registrar resultado</h2></div>
+      <label>Test<select name="test">${Object.entries(CATEGORIAS).map(([k, n]) => `<optgroup label="${n}">${tests.filter(x => x.categoria === k).map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('')}</optgroup>`).join('')}</select></label>
+      <div id="cap"></div>
+      <div class="grid2"><label>Fecha<input type="date" name="fecha" value="${new Date().toLocaleDateString('en-CA')}"></label><label>Nota (opcional)<input name="nota"></label></div>
+      <button class="btn btn-rojo" type="submit">Guardar</button></form>`, d => {
+      const fr = $('#f-res', d);
+      const pintar = () => { t = tests.find(x => x.id === fr.test.value); $('#cap', d).innerHTML = htmlCaptura(t, 'valor'); };
+      fr.test.onchange = pintar; pintar();
+      fr.onsubmit = async e => {
+        e.preventDefault();
+        try {
+          const r = leerCaptura(t, fr, 'valor'); if (!r) return aviso('Escribe el resultado.', 'error');
+          await db.guardarResultadoTest({ miembro_id: m.id, test_id: t.id, valor: r.valor, detalle: r.detalle, fecha: fr.fecha.value, nota: fr.nota.value || null });
+          d.close(); aviso('Resultado guardado'); panelTests(p, m);
+        } catch (err) { aviso(err.message || 'No se pudo guardar.', 'error'); }
+      };
+    });
+  };
 }
 
 async function panelAnamnesis(p, m) {
@@ -465,12 +546,16 @@ function editarSesion(s, alCerrar) {
 
 function filaItem(it, real) {
   const pres = [it.series && it.series + ' series', it.reps, it.carga, it.ritmo, it.descanso && 'desc. ' + it.descanso].filter(Boolean).join(' · ');
-  return `<div class="item-ed"><div class="fila-cuerpo"><p class="fila-t">${esc(it.ejercicio)}</p><p class="fila-s">${esc(pres)}</p>${it.nota ? `<p class="fila-s">Tu comentario: «${esc(it.nota)}»</p>` : ''}${real ? `<p class="fila-s" style="color:#7ee787">Real: ${esc(real)}</p>` : ''}</div>
+  return `<div class="item-ed"><div class="fila-cuerpo"><p class="fila-t">${it.test_id ? '<span class="chip chip-alerta" style="margin-right:6px">Test</span>' : ''}${esc(it.ejercicio)}</p><p class="fila-s">${esc(pres)}</p>${it.nota ? `<p class="fila-s">Tu comentario: «${esc(it.nota)}»</p>` : ''}${real ? `<p class="fila-s" style="color:#7ee787">Real: ${esc(real)}</p>` : ''}</div>
     <div class="acciones"><button class="link" data-edit="${it.id}">Editar</button><button class="link link-peligro" data-del="${it.id}">Quitar</button></div></div>`;
 }
 
-function editarItem(it, alGuardar) {
+async function editarItem(it, alGuardar) {
+  const tests = await db.tests().catch(() => []);
   dialogo(`<form class="form" id="f-item"><div><p class="eyebrow">Ejercicio</p><h2 class="h2">${it.id ? 'Editar' : 'Agregar'}</h2></div>
+    <label>¿Es un test? (opcional)<select name="test_id"><option value="">No, es un ejercicio normal</option>
+      ${Object.entries(CATEGORIAS).map(([k, n]) => `<optgroup label="${n}">${tests.filter(t => t.categoria === k).map(t => `<option value="${t.id}" ${t.id === it.test_id ? 'selected' : ''}>${esc(t.nombre)}</option>`).join('')}</optgroup>`).join('')}
+    </select></label>
     <label>Ejercicio<input name="ejercicio" required value="${esc(it.ejercicio || '')}" placeholder="Sentadilla goblet"></label>
     <div class="grid3"><label>Series<input name="series" value="${esc(it.series || '')}" placeholder="4"></label>
     <label>Reps / duración<input name="reps" value="${esc(it.reps || '')}" placeholder="8 · 35 min"></label>
@@ -480,7 +565,9 @@ function editarItem(it, alGuardar) {
     <label>Comentario para el miembro (opcional)<textarea name="nota" rows="3" placeholder="Baja en 3 segundos y aprieta glúteo arriba. Si molesta la rodilla, reduce el rango.">${esc(it.nota || '')}</textarea></label>
     <label>Video de referencia (opcional)<input type="url" name="video_url" value="${esc(it.video_url || '')}" placeholder="https://instagram.com/…"></label>
     <button class="btn btn-rojo" type="submit">Guardar ejercicio</button></form>`, d => {
-    $('#f-item', d).onsubmit = async e => { e.preventDefault(); await db.guardarItem({ ...it, ...datosForm(e.target) }); d.close(); aviso('Ejercicio guardado'); alGuardar(); };
+    const f = $('#f-item', d);
+    f.test_id.onchange = () => { const t = tests.find(x => x.id === f.test_id.value); if (t && !f.ejercicio.value.trim()) f.ejercicio.value = t.nombre; if (t && !f.series.value) f.series.value = '1'; };
+    f.onsubmit = async e => { e.preventDefault(); const x = datosForm(e.target); x.test_id = x.test_id || null; await db.guardarItem({ ...it, ...x }); d.close(); aviso('Ejercicio guardado'); alGuardar(); };
   });
 }
 
