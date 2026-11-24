@@ -24,6 +24,12 @@ export function formatear(t, valor) {
 
 // Campos de captura según la unidad
 export function htmlCaptura(t, nombre, previo = '') {
+  if (t.calculo === 'umbral30') {
+    const fc = (previo.match(/(\d+)\s*lpm/) || [])[1], dist = (previo.match(/([\d.,]+)\s*m\b/) || [])[1], max = (previo.match(/máx\s*(\d+)/) || [])[1];
+    return `<div class="cap-test cap-umbral"><label>FC promedio últimos 20 min<input name="${nombre}_fc" inputmode="numeric" value="${esc(fc || '')}" placeholder="Ej. 168"></label>
+      <label>Distancia total (m)<input name="${nombre}_dist" inputmode="numeric" value="${esc(dist ? dist.replace(/[.,]/g, '') : '')}" placeholder="Ej. 6200"></label>
+      <label>FC más alta que viste (opcional)<input name="${nombre}_max" inputmode="numeric" value="${esc(max || '')}" placeholder="Ej. 185"></label></div>`;
+  }
   if (t.unidad === 'kg_reps') {
     const [kg, reps] = (previo.match(/([\d.]+)\s*kg\s*×\s*(\d+)/) || []).slice(1);
     return `<div class="grid2 cap-test"><label>Peso (kg)<input name="${nombre}_kg" inputmode="decimal" value="${esc(kg || '')}" placeholder="80"></label>
@@ -34,6 +40,15 @@ export function htmlCaptura(t, nombre, previo = '') {
 }
 // Devuelve { valor, detalle, texto } o null si está vacío; lanza Error si es inválido
 export function leerCaptura(t, form, nombre) {
+  if (t.calculo === 'umbral30') {
+    const v = k => Number(String(form.querySelector(`[name="${nombre}_${k}"]`)?.value || '').replace(/[^\d]/g, ''));
+    const fc = v('fc'), dist = v('dist'), max = v('max');
+    if (!fc && !dist) return null;
+    if (!(fc >= 90 && fc <= 220)) throw new Error(`${t.nombre}: escribe la FC promedio de los últimos 20 minutos.`);
+    if (!(dist >= 1000 && dist <= 15000)) throw new Error(`${t.nombre}: escribe la distancia total en metros, ej. 6200.`);
+    const detalle = `${dist.toLocaleString('es-GT')} m${max ? ` · FC máx ${max}` : ''}`;
+    return { valor: fc, detalle, texto: `${fc} lpm · ${detalle}` };
+  }
   if (t.unidad === 'kg_reps') {
     const kg = Number(String(form.querySelector(`[name="${nombre}_kg"]`)?.value || '').replace(',', '.'));
     const reps = Number(form.querySelector(`[name="${nombre}_reps"]`)?.value || 0);
@@ -50,8 +65,14 @@ export function leerCaptura(t, form, nombre) {
 }
 
 // Valores para prescribir a partir de un resultado
-export function derivados(t, valor) {
+export function derivados(t, valor, detalle = '') {
   const v = Number(valor);
+  if (t.calculo === 'umbral30') {
+    const dist = metrosDe(detalle); const pu = dist ? 1800 / dist * 1000 : null;
+    const fz = zonasFC(v), pz = pu ? zonasRitmo(pu) : null;
+    return { titulo: `FC de umbral ${v} lpm${pu ? ` · ritmo de umbral ${reloj(pu)} /km` : ''}`, cols: ['Zona', 'Pulsaciones', 'Ritmo'],
+      filas: ZONAS.map(z => [`${z.id} · ${z.nombre}`, fz[z.id], pz ? pz[z.id] : '—']) };
+  }
   if (t.calculo === '1rm') {
     const filas = [[95, '1–2'], [90, '3–4'], [85, '5–6'], [80, '7–8'], [75, '9–10'], [70, '11–12'], [65, '13–15'], [60, '16–20']];
     return { titulo: `RM estimado ${v} kg`, filas: filas.map(([p, r]) => [`${p}%`, `${Math.round(v * p / 100 * 2) / 2} kg`, `${r} reps`]), cols: ['% RM', 'Carga', 'Reps aprox.'] };
@@ -88,9 +109,41 @@ export function cambio(t, actual, previo) {
   return { mejora: mejora ? 1 : -1, texto: `${mejora ? '▲' : '▼'} ${txt} ${mejora ? 'mejor' : 'menos'} que la vez anterior` };
 }
 
-export function htmlDerivados(t, valor) {
-  const d = derivados(t, valor); if (!d) return '';
+export function htmlDerivados(t, valor, detalle) {
+  const d = derivados(t, valor, detalle); if (!d) return '';
   return `<div class="derivados"><p class="eyebrow">Para prescribir · ${esc(d.titulo)}</p>
     <table class="tabla-mini"><thead><tr>${d.cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
     <tbody>${d.filas.map(f => `<tr>${f.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
+
+/* ------------------------------------------------- Zonas personales Z1–Z5 */
+// FC por % de la FC de umbral y ritmo por % del ritmo de umbral (modelo de Joe Friel para carrera)
+export const ZONAS = [
+  { id: 'Z1', nombre: 'Recuperación', fc: [0, 84], ritmo: [129, 145] },
+  { id: 'Z2', nombre: 'Aeróbico', fc: [85, 89], ritmo: [114, 129] },
+  { id: 'Z3', nombre: 'Tempo', fc: [90, 94], ritmo: [106, 113] },
+  { id: 'Z4', nombre: 'Umbral', fc: [95, 99], ritmo: [99, 105] },
+  { id: 'Z5', nombre: 'VO2máx', fc: [100, 106], ritmo: [90, 98] }
+];
+const metrosDe = txt => { const m = String(txt || '').match(/([\d.,]+)\s*m\b/); return m ? Number(m[1].replace(/[.,]/g, '')) : null; };
+export function zonasFC(umbral) {
+  return Object.fromEntries(ZONAS.map(z => [z.id, z.fc[0] === 0 ? `menos de ${Math.round(umbral * 0.85)} lpm` : `${Math.round(umbral * z.fc[0] / 100)}–${Math.round(umbral * z.fc[1] / 100)} lpm`]));
+}
+export function zonasRitmo(pu) {
+  return Object.fromEntries(ZONAS.map(z => [z.id, z.id === 'Z1' ? `más lento que ${reloj(pu * 1.29)} /km` : `${reloj(pu * z.ritmo[0] / 100)}–${reloj(pu * z.ritmo[1] / 100)} /km`]));
+}
+// Zonas del miembro a partir de su último test de umbral (FC) y su último test de ritmo
+export function zonasMiembro(tests, resultados) {
+  const ult = calc => resultados.filter(r => tests.find(t => t.id === r.test_id && (Array.isArray(calc) ? calc.includes(t.calculo) : t.calculo === calc)))
+    .sort((a, b) => (a.fecha + a.created_at).localeCompare(b.fecha + b.created_at)).pop();
+  const u = ult('umbral30'), rr = ult(['umbral30', 'ritmo']);
+  let pu = null, fuenteRitmo = null;
+  if (rr) {
+    const t = tests.find(x => x.id === rr.test_id);
+    if (t.calculo === 'umbral30') { const d = metrosDe(rr.detalle); if (d) pu = 1800 / d * 1000; }
+    else pu = Number(rr.valor) * Math.pow(5000 / t.distancia, 1.06) / 5 * 1.07;
+    fuenteRitmo = t.nombre;
+  }
+  return { fc: u ? zonasFC(Number(u.valor)) : null, ritmo: pu ? zonasRitmo(pu) : null, fuenteFC: u ? 'Test de 30 min' : null, fuenteRitmo };
+}
+export function zonaDe(texto) { const m = String(texto || '').match(/\bZ\s?([1-5])\b/i); return m ? 'Z' + m[1] : null; }

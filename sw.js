@@ -1,5 +1,5 @@
 // Service worker mínimo: permite instalar la app y abre rápido con red disponible.
-const CACHE = 'vsl-v14';
+const CACHE = 'vsl-v15';
 const BASE = ['/app/', '/app/app.css', '/app/main.js', '/shared/app.css', '/shared/ui.js', '/shared/data.js', '/shared/acceso.js', '/shared/anamnesis.js', '/shared/tests.js', '/img/vs-limitless-horizontal-claro.svg'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(BASE)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

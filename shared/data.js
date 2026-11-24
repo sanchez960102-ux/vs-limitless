@@ -225,6 +225,7 @@ function crearDemo() {
     sesiones: [], items: [], registros: [], checkins: [], videos: [], invitaciones: [],
     tests: [
       { id: 't-cooper', nombre: 'Test de Cooper (12 min)', categoria: 'carrera', unidad: 'm', mejor: 'mayor', distancia: null, calculo: 'cooper', protocolo: 'Calienta 10 min trotando suave. Corre la mayor distancia posible en 12 minutos. Anota los metros totales.', orden: 1 },
+      { id: 't-umbral', nombre: 'Test de 30 min (umbral)', categoria: 'carrera', unidad: 'bpm', mejor: 'mayor', distancia: null, calculo: 'umbral30', protocolo: 'Calienta 15 min. Corre 30 minutos al máximo esfuerzo sostenible. Anota la FC promedio de los últimos 20 minutos, la distancia total y la FC más alta que viste.', orden: 6 },
       { id: 't-5k', nombre: '5 km contrarreloj', categoria: 'carrera', unidad: 'tiempo', mejor: 'menor', distancia: 5000, calculo: 'ritmo', protocolo: 'Calienta 15 min. Corre 5 km al mejor ritmo que puedas sostener, en terreno plano. Anota el tiempo total.', orden: 4 },
       { id: 't-sentadilla', nombre: 'Sentadilla · RM estimado', categoria: 'fuerza', unidad: 'kg_reps', mejor: 'mayor', distancia: null, calculo: '1rm', protocolo: 'Calienta con 2–3 series progresivas. Elige un peso que puedas mover entre 3 y 8 repeticiones con buena técnica. Anota el peso y las repeticiones.', orden: 10 },
       { id: 't-flexiones', nombre: 'Flexiones máximas', categoria: 'fuerza', unidad: 'reps', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Cuerpo en línea recta, pecho hasta un puño del suelo. Máximas repeticiones continuas.', orden: 15 },
@@ -233,6 +234,7 @@ function crearDemo() {
     resultados: [
       { id: 'r1', miembro_id: 'ana', test_id: 't-5k', item_id: null, valor: 1860, detalle: null, fecha: iso(new Date(Date.now() - 19 * 86400000)), created_at: hace(19) },
       { id: 'r2', miembro_id: 'ana', test_id: 't-sentadilla', item_id: null, valor: 46.5, detalle: '40 kg × 5', fecha: iso(new Date(Date.now() - 18 * 86400000)), created_at: hace(18) },
+      { id: 'r4', miembro_id: 'ana', test_id: 't-umbral', item_id: null, valor: 171, detalle: '5,600 m · FC máx 188', fecha: iso(new Date(Date.now() - 17 * 86400000)), created_at: hace(17) },
       { id: 'r3', miembro_id: 'ana', test_id: 't-plancha', item_id: null, valor: 75, detalle: null, fecha: iso(new Date(Date.now() - 18 * 86400000)), created_at: hace(18) }],
     anamnesis: [{ miembro_id: 'ana', paso: 6, completada: true, alerta_salud: true, completada_at: hace(20), revisada_at: null, datos: {
       nacimiento: '1994-03-12', sexo: 'Mujer', estatura: '163', peso: '64.2', ocupacion: 'Contadora', actividad_laboral: 'Sentado', emergencia_nombre: 'Carlos López (esposo)', emergencia_tel: '+502 5555 0000',
@@ -251,9 +253,9 @@ function crearDemo() {
   };
   const plantilla = [
     { dia: 1, titulo: 'Fuerza tren inferior', tipo: 'fuerza', items: [['Sentadilla goblet', '4', '8', '20 kg', '', '90 s'], ['Peso muerto rumano', '3', '10', '2×14 kg', '', '90 s'], ['Zancada inversa', '3', '8 c/lado', 'Corporal', '', '60 s'], ['Plancha', '3', '40 s', '', '', '45 s']] },
-    { dia: 2, titulo: 'Rodaje suave Z2', tipo: 'carrera', items: [['Carrera continua', '1', '35 min', '', '6:40–7:00 /km', ''], ['Strides', '4', '20 s', '', 'Rápido y suelto', '60 s']] },
+    { dia: 2, titulo: 'Rodaje suave Z2', tipo: 'carrera', items: [['Carrera continua', '1', '35 min', '', 'Z2', ''], ['Strides', '4', '20 s', '', 'Rápido y suelto', '60 s']] },
     { dia: 4, titulo: 'Fuerza tren superior + core', tipo: 'fuerza', items: [['Press de banca mancuerna', '4', '8', '2×12 kg', '', '90 s'], ['Remo con mancuerna', '4', '10', '16 kg', '', '60 s'], ['Press militar', '3', '10', '2×8 kg', '', '60 s'], ['Dead bug', '3', '10 c/lado', '', '', '45 s']] },
-    { dia: 6, titulo: 'Fondo largo', tipo: 'carrera', items: [['Carrera continua', '1', '50 min', '', '6:50–7:10 /km', ''], ['Movilidad de cadera', '1', '8 min', '', '', '']] }
+    { dia: 6, titulo: 'Fondo largo', tipo: 'carrera', items: [['Carrera continua', '1', '50 min', '', 'Z2', ''], ['Movilidad de cadera', '1', '8 min', '', '', '']] }
   ];
   const NOTAS_DEMO = {
     'Sentadilla goblet': 'Baja en 3 segundos y empuja el piso al subir. Rodillas siguiendo la punta del pie. Si las 8 salen fáciles, sube a 22 kg la próxima.',

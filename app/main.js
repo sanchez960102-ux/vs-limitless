@@ -2,7 +2,7 @@ import { crearDatos, DIAS, semanaActual, diaSemanaHoy, diasDesde, puedeVideos, c
 import { $, $$, esc, fecha, aviso, cargando, vacio, datosForm, dialogo, registrarSW } from '/shared/ui.js';
 import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
 import { PASOS, htmlPaso, leerPaso, alertas, requiereRevisionMedica } from '/shared/anamnesis.js';
-import { htmlCaptura, leerCaptura, formatear, cambio, CATEGORIAS } from '/shared/tests.js';
+import { htmlCaptura, leerCaptura, formatear, cambio, CATEGORIAS, zonasMiembro, zonaDe, ZONAS } from '/shared/tests.js';
 
 const raiz = $('#raiz');
 let db, yo, bloque, cobro, pago;
@@ -368,7 +368,14 @@ async function vistaPlan(v, sem) {
 
 /* ------------------------------------------------------------ Sesión */
 async function vistaSesion(v, id) {
-  const [s, tests] = await Promise.all([db.sesion(id), db.tests().catch(() => [])]);
+  const [s, tests, misRes] = await Promise.all([db.sesion(id), db.tests().catch(() => []), db.resultadosTest(yo.id).catch(() => [])]);
+  const zonas = zonasMiembro(tests, misRes);
+  const tuZona = it => {
+    const z = zonaDe(it.ritmo) || zonaDe(it.reps) || zonaDe(it.carga); if (!z) return '';
+    const partes = [zonas.fc?.[z], zonas.ritmo?.[z]].filter(Boolean);
+    const nombre = ZONAS.find(x => x.id === z).nombre;
+    return `<div class="tu-zona"><b>Tu ${z} · ${nombre}</b><span>${partes.length ? partes.join(' · ') : 'Aún no tienes un test de carrera para calcular tus pulsaciones y ritmo en esta zona.'}</span></div>`;
+  };
   const T = it => it.test_id && tests.find(t => t.id === it.test_id);
   const reg = s.registros?.[0];
   const res = reg?.resultados || {};
@@ -409,6 +416,7 @@ async function vistaSesion(v, id) {
             <div>${T(it) ? `<span class="tag-test">Test · ${CATEGORIAS[T(it).categoria]}</span>` : ''}<h3>${esc(it.ejercicio)}</h3></div>
             ${it.video_url ? `<a class="ej-video" href="${esc(it.video_url)}" target="_blank" rel="noopener">Ver técnica</a>` : ''}</div>
           ${datos(it).length ? `<dl class="ej-datos">${datos(it).map(([e, x]) => `<div><dt>${e}</dt><dd>${esc(x)}</dd></div>`).join('')}</dl>` : ''}
+          ${tuZona(it)}
           ${it.nota ? notaVic('Comentario de Vic', it.nota) : ''}
           ${T(it) ? `<details class="protocolo"><summary>Cómo hacer el test</summary><p>${esc(T(it).protocolo)}</p></details>
             <div class="ej-real">${htmlCaptura(T(it), 'r_' + it.id, res[it.id] || '')}</div>`
@@ -626,6 +634,9 @@ async function vistaProgreso(v) {
     </section>`;
   const [tests, resTest] = await Promise.all([db.tests().catch(() => []), db.resultadosTest(yo.id).catch(() => [])]);
   const porTest = tests.map(t => ({ t, rs: resTest.filter(r => r.test_id === t.id) })).filter(x => x.rs.length);
+  const zs = zonasMiembro(tests, resTest);
+  if (zs.fc || zs.ritmo) v.insertAdjacentHTML('beforeend', `<div class="card"><p class="card-t">Tus zonas de carrera <small>Según tu último test</small></p>
+    <div class="tests-lista">${ZONAS.map(z => `<div class="test-fila"><div><p class="test-n">${z.id} · ${z.nombre}</p><p class="test-s">${[zs.fc?.[z.id], zs.ritmo?.[z.id]].filter(Boolean).join(' · ')}</p></div></div>`).join('')}</div></div>`);
   if (porTest.length) v.insertAdjacentHTML('beforeend', `<div class="card"><p class="card-t">Tus tests <small>${porTest.length} evaluado${porTest.length === 1 ? '' : 's'}</small></p>
     <div class="tests-lista">${porTest.map(({ t, rs }) => {
       const ult = rs[rs.length - 1], prev = rs[rs.length - 2], c = cambio(t, ult.valor, prev?.valor);

@@ -345,3 +345,8 @@ body::before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .test-d.sube{color:#7ee787}.test-d.baja{color:#ff8a80}
 .test-v{font:400 24px/1 var(--display);white-space:nowrap}
 .burbuja-coach{background:linear-gradient(160deg,rgba(242,239,234,.16),rgba(242,239,234,.07));color:var(--tinta);border-left:3px solid var(--rojo)}
+.tu-zona{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:14px;background:linear-gradient(160deg,rgba(225,6,0,.22),rgba(225,6,0,.08));border:1px solid rgba(255,90,80,.4)}
+.tu-zona b{font:600 13px var(--texto)}
+.tu-zona span{font-size:14px;color:var(--tinta)}
+.cap-umbral{display:flex;flex-direction:column;gap:10px}
+.cap-umbral label{display:flex;flex-direction:column;gap:8px}

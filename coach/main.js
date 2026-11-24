@@ -2,7 +2,7 @@ import { crearDatos, DIAS, PLANES, TIPOS, semanaActual, diaSemanaHoy, lunesDe, p
 import { $, $$, esc, fecha, hace, aviso, cargando, vacio, datosForm, dialogo, barraProgreso, lineaSVG, registrarSW } from '/shared/ui.js';
 import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
 import { PASOS, alertas, requiereRevisionMedica, htmlResumen, edad } from '/shared/anamnesis.js';
-import { CATEGORIAS, UNIDADES, htmlCaptura, leerCaptura, formatear, cambio, htmlDerivados } from '/shared/tests.js';
+import { CATEGORIAS, UNIDADES, htmlCaptura, leerCaptura, formatear, cambio, htmlDerivados, zonasMiembro, ZONAS } from '/shared/tests.js';
 
 const raiz = $('#raiz');
 const URL_APP = location.origin + '/app/';
@@ -337,9 +337,14 @@ async function panelTests(p, m) {
   const [tests, rs] = await Promise.all([db.tests(), db.resultadosTest(m.id)]);
   const f = iso => new Date(iso + 'T12:00:00').toLocaleDateString('es-GT', { day: 'numeric', month: 'short', year: 'numeric' });
   const grupos = tests.map(t => ({ t, rs: rs.filter(r => r.test_id === t.id) })).filter(g => g.rs.length);
+  const zs = zonasMiembro(tests, rs);
+  const tablaZonas = (zs.fc || zs.ritmo) ? `<div class="tarjeta test-card"><div class="test-cab"><div><p class="eyebrow">Se aplican solas en el plan</p><p class="h3" style="margin:4px 0 0">Zonas de carrera actuales</p></div></div>
+    <p class="fila-s" style="margin:0">Escribe Z1 a Z5 en «Ritmo / zona» de cualquier ejercicio y el miembro verá estos valores. FC: ${zs.fuenteFC || 'sin test de 30 min'} · Ritmo: ${zs.fuenteRitmo || 'sin test de carrera'}.</p>
+    <table class="tabla-mini"><thead><tr><th>Zona</th><th>Pulsaciones</th><th>Ritmo</th></tr></thead><tbody>${ZONAS.map(z => `<tr><td>${z.id} · ${z.nombre}</td><td>${zs.fc?.[z.id] || '—'}</td><td>${zs.ritmo?.[z.id] || '—'}</td></tr>`).join('')}</tbody></table></div>` : '';
   p.innerHTML = `
     <div class="titulo" style="align-items:center"><p class="suave" style="margin:0">${grupos.length ? `${grupos.length} test${grupos.length === 1 ? '' : 's'} con resultados.` : 'Aún no hay resultados.'} Los que el miembro registra en sus sesiones aparecen aquí solos.</p>
       <button class="btn btn-linea" id="registrar">Registrar resultado</button></div>
+    ${tablaZonas}
     ${grupos.map(({ t, rs }) => {
       const ult = rs[rs.length - 1], c = cambio(t, ult.valor, rs[rs.length - 2]?.valor);
       const mejor = rs.reduce((a, r) => (t.mejor === 'menor' ? Number(r.valor) < Number(a.valor) : Number(r.valor) > Number(a.valor)) ? r : a, rs[0]);
@@ -348,7 +353,7 @@ async function panelTests(p, m) {
           <div style="text-align:right"><p class="compromiso" style="margin:0">${esc(formatear(t, ult.valor))}</p><p class="fila-s" style="margin:4px 0 0">${f(ult.fecha)}${ult.detalle ? ' · ' + esc(ult.detalle) : ''}</p></div></div>
         ${c ? `<p class="test-d ${c.mejora > 0 ? 'sube' : c.mejora < 0 ? 'baja' : ''}">${esc(c.texto)}</p>` : ''}
         ${rs.length > 1 ? `<p class="fila-s">Mejor marca: ${esc(formatear(t, mejor.valor))} (${f(mejor.fecha)}) · ${rs.length} mediciones</p>` : ''}
-        ${htmlDerivados(t, ult.valor)}
+        ${htmlDerivados(t, ult.valor, ult.detalle)}
         ${rs.length > 1 ? `<details><summary class="link" style="cursor:pointer">Historial</summary><div class="lista" style="margin-top:10px">${[...rs].reverse().map(r => `<div class="fila"><div class="fila-cuerpo"><p class="fila-t">${esc(formatear(t, r.valor))}</p><p class="fila-s">${f(r.fecha)}${r.detalle ? ' · ' + esc(r.detalle) : ''}</p></div><button class="link link-peligro" data-borrar="${r.id}" type="button">Borrar</button></div>`).join('')}</div></details>` : `<button class="link link-peligro" data-borrar="${ult.id}" type="button" style="align-self:flex-start">Borrar este resultado</button>`}
       </div>`;
     }).join('')}`;
@@ -561,7 +566,8 @@ async function editarItem(it, alGuardar) {
     <label>Reps / duración<input name="reps" value="${esc(it.reps || '')}" placeholder="8 · 35 min"></label>
     <label>Descanso<input name="descanso" value="${esc(it.descanso || '')}" placeholder="90 s"></label></div>
     <div class="grid2"><label>Carga<input name="carga" value="${esc(it.carga || '')}" placeholder="20 kg · RPE 7"></label>
-    <label>Ritmo / zona<input name="ritmo" value="${esc(it.ritmo || '')}" placeholder="6:40 /km · Z2"></label></div>
+    <label>Ritmo / zona<input name="ritmo" value="${esc(it.ritmo || '')}" placeholder="Z2 o 6:40 /km"></label></div>
+    <p class="tenue" style="font-size:12px;margin:-6px 0 0">Si escribes Z1 a Z5, el miembro ve sus pulsaciones y ritmo personales de esa zona, calculados con su último test.</p>
     <label>Comentario para el miembro (opcional)<textarea name="nota" rows="3" placeholder="Baja en 3 segundos y aprieta glúteo arriba. Si molesta la rodilla, reduce el rango.">${esc(it.nota || '')}</textarea></label>
     <label>Video de referencia (opcional)<input type="url" name="video_url" value="${esc(it.video_url || '')}" placeholder="https://instagram.com/…"></label>
     <button class="btn btn-rojo" type="submit">Guardar ejercicio</button></form>`, d => {
