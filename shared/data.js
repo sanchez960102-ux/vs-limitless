@@ -169,6 +169,9 @@ async function crearSupabase() {
         { clave: 'cobro_whatsapp', valor: a.whatsapp || '' },
         { clave: 'cobro_gracia', valor: String(a.gracia ?? 5) }]));
     },
+    async cargas(mid) { return ok(await sb.from('cargas').select('*').eq('miembro_id', mid).order('fecha').order('created_at')); },
+    async guardarCarga(c) { return ok(await sb.from('cargas').upsert(c, { onConflict: 'item_id' }).select().single()); },
+    async borrarCargasDeItems(ids) { if (ids.length) ok(await sb.from('cargas').delete().in('item_id', ids)); },
     async tests() { return ok(await sb.from('tests').select('*').eq('activo', true).order('orden').order('nombre')); },
     async guardarTest(t) { return ok(await sb.from('tests').upsert(t).select().single()); },
     async resultadosTest(mid) { return ok(await sb.from('resultados_test').select('*').eq('miembro_id', mid).order('fecha').order('created_at')); },
@@ -231,6 +234,16 @@ function crearDemo() {
       { id: 't-flexiones', nombre: 'Flexiones máximas', categoria: 'fuerza', unidad: 'reps', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Cuerpo en línea recta, pecho hasta un puño del suelo. Máximas repeticiones continuas.', orden: 15 },
       { id: 't-plancha', nombre: 'Plancha frontal máxima', categoria: 'funcional', unidad: 'tiempo', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Apoyo en antebrazos, cuerpo alineado. Detén el tiempo cuando la cadera caiga o se eleve.', orden: 20 },
       { id: 't-tobillo', nombre: 'Dorsiflexión de tobillo (rodilla a la pared)', categoria: 'movilidad', unidad: 'cm', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Lleva la rodilla a la pared sin despegar el talón y mide la distancia máxima del dedo gordo a la pared.', orden: 31 }],
+    cargas: (() => {
+      const c = (ej, dias, series) => { const v = series.map(([kg, reps]) => ({ kg, reps })); const top = Math.max(...v.map(s => s.kg));
+        return { id: uuid(), miembro_id: 'ana', item_id: null, ejercicio: ej, clave: ej.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), fecha: iso(new Date(Date.now() - dias * 86400000)), series: v, top_kg: top,
+          e1rm: Math.max(...v.map(s => Math.round(s.kg * (1 + s.reps / 30) * 2) / 2)), volumen: v.reduce((a, s) => a + s.kg * s.reps, 0), created_at: hace(dias) }; };
+      return [
+        c('Sentadilla goblet', 14, [[16, 8], [16, 8], [16, 8], [16, 7]]), c('Peso muerto rumano', 14, [[12, 10], [12, 10], [12, 10]]),
+        c('Press de banca mancuerna', 11, [[10, 8], [10, 8], [10, 7], [10, 6]]), c('Remo con mancuerna', 11, [[14, 10], [14, 10], [14, 10], [14, 10]]),
+        c('Sentadilla goblet', 7, [[18, 8], [18, 8], [18, 8], [18, 8]]), c('Peso muerto rumano', 7, [[14, 10], [14, 10], [14, 9]]),
+        c('Press de banca mancuerna', 4, [[10, 8], [10, 8], [10, 8], [10, 7]]), c('Remo con mancuerna', 4, [[16, 10], [16, 10], [16, 9], [16, 9]])];
+    })(),
     resultados: [
       { id: 'r1', miembro_id: 'ana', test_id: 't-5k', item_id: null, valor: 1860, detalle: null, fecha: iso(new Date(Date.now() - 19 * 86400000)), created_at: hace(19) },
       { id: 'r2', miembro_id: 'ana', test_id: 't-sentadilla', item_id: null, valor: 46.5, detalle: '40 kg × 5', fecha: iso(new Date(Date.now() - 18 * 86400000)), created_at: hace(18) },
@@ -354,6 +367,9 @@ function crearDemo() {
     async resumenMiembro(m) { return resumen(api, m); },
     async ajustesCobro() { return espera({ ...db.cobro }); },
     async guardarAjustesCobro(a) { db.cobro = { ...a, gracia: Number(a.gracia) }; return espera(); },
+    async cargas(mid) { return espera(db.cargas.filter(c => c.miembro_id === mid)); },
+    async guardarCarga(c) { let x = c.item_id && db.cargas.find(y => y.item_id === c.item_id); if (x) Object.assign(x, c); else { x = { id: uuid(), created_at: new Date().toISOString(), ...c }; db.cargas.push(x); } return espera(x); },
+    async borrarCargasDeItems(ids) { db.cargas = db.cargas.filter(c => !ids.includes(c.item_id)); return espera(); },
     async tests() { return espera(db.tests.filter(t => t.activo !== false).sort((a, b) => a.orden - b.orden)); },
     async guardarTest(t) { let x = t.id && db.tests.find(y => y.id === t.id); if (x) Object.assign(x, t); else { x = { id: uuid(), activo: true, orden: 99, ...t }; db.tests.push(x); } return espera(x); },
     async resultadosTest(mid) { return espera(db.resultados.filter(r => r.miembro_id === mid).sort((a, b) => a.fecha.localeCompare(b.fecha))); },

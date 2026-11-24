@@ -350,3 +350,15 @@ body::before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .tu-zona span{font-size:14px;color:var(--tinta)}
 .cap-umbral{display:flex;flex-direction:column;gap:10px}
 .cap-umbral label{display:flex;flex-direction:column;gap:8px}
+
+/* ===== Series y cargas ===== */
+.series{display:flex;flex-direction:column;gap:8px}
+.serie-previa{margin:0;font-size:13px;color:var(--tinta-suave)}
+.serie-previa b{color:var(--tinta)}
+.serie-sug{margin:0;font:600 13px/1.4 var(--texto);padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14)}
+.serie-sug.sube{background:rgba(126,231,135,.12);border-color:rgba(126,231,135,.4);color:#c9f5cc}
+.serie-cab,.serie-fila{display:grid;grid-template-columns:44px 1fr 1fr;gap:8px;align-items:center}
+.serie-cab span{font:500 10px/1 var(--texto);letter-spacing:.12em;text-transform:uppercase;color:var(--tinta-tenue)}
+.serie-n{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.08);font:600 13px var(--texto)}
+.serie-fila input{text-align:center;font-size:16px}
+.serie-ayuda{margin:2px 0 0;font-size:12px;color:var(--tinta-tenue)}

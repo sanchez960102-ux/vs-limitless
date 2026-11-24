@@ -1,8 +1,9 @@
-import { crearDatos, DIAS, semanaActual, diaSemanaHoy, diasDesde, puedeVideos, checkinCada, estadoPago } from '/shared/data.js';
+import { crearDatos, DIAS, semanaActual, diaSemanaHoy, diasDesde, puedeVideos, checkinCada, estadoPago, hoyISO } from '/shared/data.js';
 import { $, $$, esc, fecha, aviso, cargando, vacio, datosForm, dialogo, registrarSW } from '/shared/ui.js';
 import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
 import { PASOS, htmlPaso, leerPaso, alertas, requiereRevisionMedica } from '/shared/anamnesis.js';
 import { htmlCaptura, leerCaptura, formatear, cambio, CATEGORIAS, zonasMiembro, zonaDe, ZONAS } from '/shared/tests.js';
+import { esDeCarga, claveEjercicio, htmlSeries, leerSeries, sugerencia, texto as textoSeries, resumen as resumenSeries, porEjercicio } from '/shared/cargas.js';
 
 const raiz = $('#raiz');
 let db, yo, bloque, cobro, pago;
@@ -368,7 +369,10 @@ async function vistaPlan(v, sem) {
 
 /* ------------------------------------------------------------ Sesión */
 async function vistaSesion(v, id) {
-  const [s, tests, misRes] = await Promise.all([db.sesion(id), db.tests().catch(() => []), db.resultadosTest(yo.id).catch(() => [])]);
+  const [s, tests, misRes, misCargas] = await Promise.all([db.sesion(id), db.tests().catch(() => []), db.resultadosTest(yo.id).catch(() => []), db.cargas(yo.id).catch(() => [])]);
+  const deCarga = it => esDeCarga(it, s.tipo);
+  const cargaActual = it => misCargas.find(c => c.item_id === it.id);
+  const cargaPrevia = it => misCargas.filter(c => c.clave === claveEjercicio(it.ejercicio) && c.item_id !== it.id).at(-1);
   const zonas = zonasMiembro(tests, misRes);
   const tuZona = it => {
     const z = zonaDe(it.ritmo) || zonaDe(it.reps) || zonaDe(it.carga); if (!z) return '';
@@ -420,6 +424,7 @@ async function vistaSesion(v, id) {
           ${it.nota ? notaVic('Comentario de Vic', it.nota) : ''}
           ${T(it) ? `<details class="protocolo"><summary>Cómo hacer el test</summary><p>${esc(T(it).protocolo)}</p></details>
             <div class="ej-real">${htmlCaptura(T(it), 'r_' + it.id, res[it.id] || '')}</div>`
+          : deCarga(it) ? htmlSeries(it, cargaActual(it), cargaPrevia(it), sugerencia(it, cargaPrevia(it)))
           : `<label class="ej-real">Lo que hiciste
             <input name="r_${it.id}" value="${esc(res[it.id] || '')}" placeholder="${cardio || it.ritmo ? 'Ej. 34 min a 6:50 /km' : 'Ej. 22 kg × 8, 8, 7'}">
           </label>`}
@@ -439,17 +444,23 @@ async function vistaSesion(v, id) {
   const guiaOk = $('#guia-ok');
   if (guiaOk) guiaOk.onclick = () => { try { localStorage.setItem('vsl-guia-sesion', '1'); } catch {} $('#guia').remove(); };
   const avance = () => {
-    const ejs = $$('[data-ej]'); const n = ejs.filter(e => { const ok = e.querySelector('input').value.trim() !== ''; e.classList.toggle('ok', ok); return ok; }).length;
+    const ejs = $$('[data-ej]'); const n = ejs.filter(e => { const ok = [...e.querySelectorAll('input')].some(i => i.value.trim() !== ''); e.classList.toggle('ok', ok); return ok; }).length;
     $('#avance').textContent = ejs.length ? `${n} de ${ejs.length} anotados` : '';
   };
   $$('[data-ej] input').forEach(i => i.addEventListener('input', avance)); avance();
   $$('#f-sesion [name=rpe]').forEach(r => r.addEventListener('change', () => { $('#rpe-guia').textContent = rpeTexto(Number(r.value)); }));
   $('#f-sesion').onsubmit = async e => {
     e.preventDefault();
-    const d = datosForm(e.target); const resultados = {}; const deTests = [];
+    const d = datosForm(e.target); const resultados = {}; const deTests = []; const deCargas = []; const sinCarga = [];
     try {
       s.items.forEach(it => {
         const t = T(it);
+        if (!t && deCarga(it)) {
+          const series = leerSeries(e.target, it);
+          if (series.length) { resultados[it.id] = textoSeries(series); deCargas.push({ miembro_id: yo.id, item_id: it.id, ejercicio: it.ejercicio, clave: claveEjercicio(it.ejercicio), fecha: hoyISO(), series, ...resumenSeries(series) }); }
+          else if (cargaActual(it)) sinCarga.push(it.id);
+          return;
+        }
         if (!t) { if (d['r_' + it.id]) resultados[it.id] = d['r_' + it.id]; return; }
         const r = leerCaptura(t, e.target, 'r_' + it.id);
         if (r) { resultados[it.id] = r.texto; deTests.push({ miembro_id: yo.id, test_id: t.id, item_id: it.id, valor: r.valor, detalle: r.detalle }); }
@@ -459,12 +470,14 @@ async function vistaSesion(v, id) {
     try {
       await db.guardarRegistro(s, { completada: true, rpe: d.rpe ? Number(d.rpe) : null, nota: d.nota || null, resultados });
       for (const r of deTests) await db.guardarResultadoTest(r);
+      for (const c of deCargas) await db.guardarCarga(c);
+      await db.borrarCargasDeItems(sinCarga);
       aviso(reg ? 'Cambios guardados' : 'Sesión completada. Así se construye.');
       location.hash = '#/hoy';
     } catch (err) { btn.disabled = false; aviso('No se pudo guardar. Revisa tu conexión.', 'error'); }
   };
   const des = $('#desmarcar');
-  if (des) des.onclick = async () => { await db.borrarRegistro(s.id); aviso('Sesión desmarcada'); enrutar(); };
+  if (des) des.onclick = async () => { await db.borrarRegistro(s.id); await db.borrarCargasDeItems(s.items.map(i => i.id)); aviso('Sesión desmarcada'); enrutar(); };
 }
 
 /* ----------------------------------------------------------- Check-in */
@@ -634,6 +647,14 @@ async function vistaProgreso(v) {
     </section>`;
   const [tests, resTest] = await Promise.all([db.tests().catch(() => []), db.resultadosTest(yo.id).catch(() => [])]);
   const porTest = tests.map(t => ({ t, rs: resTest.filter(r => r.test_id === t.id) })).filter(x => x.rs.length);
+  const grupos = porEjercicio(await db.cargas(yo.id).catch(() => [])).filter(g => g.registros.some(r => r.top_kg));
+  if (grupos.length) v.insertAdjacentHTML('beforeend', `<div class="card"><p class="card-t">Tus cargas <small>${grupos.length} ejercicio${grupos.length === 1 ? '' : 's'}</small></p>
+    <div class="tests-lista">${grupos.slice(0, 10).map(g => {
+      const cr = g.registros.filter(r => r.top_kg), ult = cr.at(-1), pri = cr[0], dif = Math.round((ult.top_kg - pri.top_kg) * 10) / 10;
+      return `<div class="test-fila"><div><p class="test-n">${esc(g.nombre)}</p><p class="test-s">${fecha(ult.fecha)} · ${esc(textoSeries(ult.series))}</p>
+        ${cr.length > 1 ? `<p class="test-d ${dif > 0 ? 'sube' : dif < 0 ? 'baja' : ''}">${dif > 0 ? '▲ +' + dif + ' kg' : dif < 0 ? '▼ ' + dif + ' kg' : 'Mismo peso'} desde ${fecha(pri.fecha)}</p>` : ''}</div>
+        <b class="test-v">${ult.top_kg} kg</b></div>`;
+    }).join('')}</div></div>`);
   const zs = zonasMiembro(tests, resTest);
   if (zs.fc || zs.ritmo) v.insertAdjacentHTML('beforeend', `<div class="card"><p class="card-t">Tus zonas de carrera <small>Según tu último test</small></p>
     <div class="tests-lista">${ZONAS.map(z => `<div class="test-fila"><div><p class="test-n">${z.id} · ${z.nombre}</p><p class="test-s">${[zs.fc?.[z.id], zs.ritmo?.[z.id]].filter(Boolean).join(' · ')}</p></div></div>`).join('')}</div></div>`);

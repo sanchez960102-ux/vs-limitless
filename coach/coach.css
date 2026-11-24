@@ -174,3 +174,6 @@ input,select,textarea{background:rgba(10,10,12,.45)!important;border-color:rgba(
 .tabla-mini th{text-align:left;font:500 10px/1 var(--texto);letter-spacing:.14em;text-transform:uppercase;color:var(--tinta-tenue);padding:0 10px 8px 0}
 .tabla-mini td{padding:7px 10px 7px 0;border-top:1px solid rgba(255,255,255,.07)}
 .cap-test{display:flex;flex-direction:column;gap:8px}
+.cargas-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.cargas-grid .grafica svg{width:100%;height:auto}
+@media (max-width:1000px){.cargas-grid{grid-template-columns:1fr}}

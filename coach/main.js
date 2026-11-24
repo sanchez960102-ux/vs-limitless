@@ -2,6 +2,7 @@ import { crearDatos, DIAS, PLANES, TIPOS, semanaActual, diaSemanaHoy, lunesDe, p
 import { $, $$, esc, fecha, hace, aviso, cargando, vacio, datosForm, dialogo, barraProgreso, lineaSVG, registrarSW } from '/shared/ui.js';
 import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
 import { PASOS, alertas, requiereRevisionMedica, htmlResumen, edad } from '/shared/anamnesis.js';
+import { porEjercicio, texto as textoSeries } from '/shared/cargas.js';
 import { CATEGORIAS, UNIDADES, htmlCaptura, leerCaptura, formatear, cambio, htmlDerivados, zonasMiembro, ZONAS } from '/shared/tests.js';
 
 const raiz = $('#raiz');
@@ -257,7 +258,7 @@ function activarVideos(v) {
 /* -------------------------------------------------------------- Miembro */
 async function vistaMiembro(v, id, tab = 'plan') {
   const m = await db.miembro(id);
-  const tabs = [['plan', 'Plan'], ['anamnesis', 'Anamnesis'], ['tests', 'Tests'], ['checkins', 'Check-ins'], ['videos', 'Videos'], ['registros', 'Registros'], ['progreso', 'Progreso'], ['pagos', 'Pagos']]
+  const tabs = [['plan', 'Plan'], ['anamnesis', 'Anamnesis'], ['cargas', 'Cargas'], ['tests', 'Tests'], ['checkins', 'Check-ins'], ['videos', 'Videos'], ['registros', 'Registros'], ['progreso', 'Progreso'], ['pagos', 'Pagos']]
     .filter(([k]) => k !== 'videos' || puedeVideos(m.plan));
   v.innerHTML = `
     <a class="link" href="#/miembros">← Miembros</a>
@@ -291,8 +292,29 @@ async function vistaMiembro(v, id, tab = 'plan') {
     };
   });
   const p = $('#panel'); cargando(p);
-  const paneles = { plan: panelPlan, checkins: panelCheckins, videos: panelVideos, registros: panelRegistros, progreso: panelProgreso, pagos: panelPagos, anamnesis: panelAnamnesis, tests: panelTests };
+  const paneles = { plan: panelPlan, checkins: panelCheckins, videos: panelVideos, registros: panelRegistros, progreso: panelProgreso, pagos: panelPagos, anamnesis: panelAnamnesis, tests: panelTests, cargas: panelCargas };
   await (paneles[tab] || panelPlan)(p, m);
+}
+
+/* -------------------------------------------------------------- Cargas */
+async function panelCargas(p, m) {
+  const grupos = porEjercicio(await db.cargas(m.id));
+  const f = iso => new Date(iso + 'T12:00:00').toLocaleDateString('es-GT', { day: 'numeric', month: 'short' });
+  if (!grupos.length) { p.innerHTML = vacio('Aún no registra cargas', 'Cuando complete una sesión de fuerza anotando peso y repeticiones por serie, aquí verás su progresión por ejercicio.'); return; }
+  p.innerHTML = `<p class="suave" style="margin:0">La app le sugiere al miembro subir de peso cuando completa el tope de repeticiones en todas las series. Aquí ves si lo está haciendo.</p>
+    <div class="cargas-grid">${grupos.map(g => {
+      const rs = g.registros, ult = rs.at(-1), conKg = rs.filter(r => r.top_kg);
+      const mejor = conKg.reduce((a, r) => !a || Number(r.e1rm) > Number(a.e1rm) ? r : a, null);
+      const dif = conKg.length > 1 ? Math.round((conKg.at(-1).top_kg - conKg[0].top_kg) * 10) / 10 : null;
+      return `<div class="tarjeta test-card">
+        <div class="test-cab"><div><p class="eyebrow">${rs.length} sesi${rs.length === 1 ? 'ón' : 'ones'} · última ${f(ult.fecha)}</p><p class="h3" style="margin:4px 0 0">${esc(g.nombre)}</p></div>
+          <div style="text-align:right"><p class="compromiso" style="margin:0">${ult.top_kg ? ult.top_kg + ' kg' : '—'}</p>${dif !== null ? `<p class="test-d ${dif > 0 ? 'sube' : dif < 0 ? 'baja' : ''}">${dif > 0 ? '▲ +' : dif < 0 ? '▼ ' : ''}${dif ? dif + ' kg' : 'Mismo peso'} desde ${f(conKg[0].fecha)}</p>` : ''}</div></div>
+        <p class="fila-s" style="margin:0">Última: ${esc(textoSeries(ult.series))}${mejor ? ` · RM estimado ${mejor.e1rm} kg` : ''}</p>
+        ${conKg.length > 1 ? `<div class="grafica">${lineaSVG(conKg.map(r => ({ x: f(r.fecha), y: Number(r.top_kg) })), { alto: 120, sufijo: ' kg' })}</div>` : ''}
+        <details><summary class="link" style="cursor:pointer">Historial</summary><table class="tabla-mini"><thead><tr><th>Fecha</th><th>Series</th><th>Volumen</th></tr></thead>
+          <tbody>${[...rs].reverse().map(r => `<tr><td>${f(r.fecha)}</td><td>${esc(textoSeries(r.series))}</td><td>${r.volumen ? Math.round(r.volumen).toLocaleString('es-GT') + ' kg' : '—'}</td></tr>`).join('')}</tbody></table></details>
+      </div>`;
+    }).join('')}</div>`;
 }
 
 /* --------------------------------------------------------------- Tests */
