@@ -249,5 +249,5 @@ body::before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .entreno-in{min-height:130px}
 .entreno.grande .entreno-in{min-height:170px}
 /* La cápsula necesita más escarcha para que el contenido de atrás no compita con los iconos */
-.nav{background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.04)),rgba(24,24,28,.62);
+.nav{background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.04)),rgba(24,24,28,.82);
   -webkit-backdrop-filter:blur(40px) saturate(1.8);backdrop-filter:blur(40px) saturate(1.8)}
