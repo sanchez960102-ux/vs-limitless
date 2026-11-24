@@ -123,6 +123,18 @@ function enrutar() {
 }
 
 /* ---------------------------------------------------------- Piezas UI */
+const ICONO_NOTA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>';
+function notaVic(titulo, texto) {
+  return `<div class="nota-vic"><span class="nota-vic-firma" aria-hidden="true">VS</span>
+    <div><small>${titulo}</small><p>${esc(texto)}</p></div></div>`;
+}
+function rpeTexto(n) {
+  if (n <= 3) return n + ' · Fácil, podías hacer mucho más.';
+  if (n <= 5) return n + ' · Cómodo, con buena reserva.';
+  if (n <= 7) return n + ' · Exigente, te quedaban 2 o 3 repeticiones.';
+  if (n <= 9) return n + ' · Muy duro, casi al límite.';
+  return n + ' · Máximo, no podías hacer ni una más.';
+}
 function anillo(pct, centro, sub) {
   const r = 50, c = 2 * Math.PI * r, off = c * (1 - Math.min(Math.max(pct, 0), 100) / 100);
   return `<div class="anillo"><svg viewBox="0 0 120 120"><circle class="pista" cx="60" cy="60" r="${r}"/>
@@ -133,6 +145,7 @@ function anillo(pct, centro, sub) {
 function tarjetaEntreno(s, { grande = false, etiqueta } = {}) {
   const hecha = s.registros?.[0]?.completada;
   const series = s.items.reduce((a, i) => a + (parseInt(i.series, 10) || 0), 0);
+  const notas = s.items.filter(i => i.nota).length + (s.notas ? 1 : 0);
   return `<a class="entreno ${grande ? 'grande' : ''} ${hecha ? 'hecha' : ''}" href="#/sesion/${s.id}">
     <span class="entreno-foto" style="background-image:url('${FOTOS[s.tipo] || FOTOS.fuerza}')"></span>
     ${hecha ? '<span class="entreno-hecha">Completada</span>' : ''}
@@ -140,6 +153,7 @@ function tarjetaEntreno(s, { grande = false, etiqueta } = {}) {
       <span class="tag">${esc(etiqueta || DIAS[s.dia - 1])}</span>
       <h3>${esc(s.titulo)}</h3>
       <span class="meta">${s.items.length} ejercicios${series ? ' · ' + series + ' series' : ''} · ${TIPO_TXT[s.tipo] || s.tipo}</span>
+      ${notas ? `<span class="con-nota">${ICONO_NOTA}${notas === 1 ? '1 comentario de Vic' : notas + ' comentarios de Vic'}</span>` : ''}
       <span class="entreno-flecha" aria-hidden="true">→</span>
     </span></a>`;
 }
@@ -238,7 +252,14 @@ async function vistaSesion(v, id) {
   const res = reg?.resultados || {};
   const cardio = ['carrera', 'bici'].includes(s.tipo);
   const series = s.items.reduce((a, i) => a + (parseInt(i.series, 10) || 0), 0);
-  const pres = it => [it.series && it.series + ' × ' + (it.reps || ''), !it.series && it.reps, it.carga, it.ritmo, it.descanso && 'desc. ' + it.descanso].filter(Boolean).join(' · ');
+  const datos = it => [
+    it.series && !(cardio && it.series === '1') && ['Series', it.series],
+    it.reps && [cardio || /min|s$/.test(it.reps) ? 'Duración' : 'Reps', it.reps],
+    it.carga && ['Carga', it.carga],
+    it.ritmo && ['Ritmo', it.ritmo],
+    it.descanso && ['Descanso', it.descanso]
+  ].filter(Boolean);
+  const guiaVista = (() => { try { return localStorage.getItem('vsl-guia-sesion') === '1'; } catch { return false; } })();
   v.innerHTML = `
     <div class="top-bar"><button class="btn-redondo" type="button" onclick="history.back()" aria-label="Volver">←</button><h1>${esc(s.titulo)}</h1></div>
     <div class="portada" style="background-image:url('${FOTOS[s.tipo] || FOTOS.fuerza}')">
@@ -250,28 +271,47 @@ async function vistaSesion(v, id) {
       <div class="stat"><small>${cardio ? 'Bloques' : 'Series'}</small><b>${series || '–'}</b></div>
       <div class="stat"><small>Tipo</small><b>${TIPO_TXT[s.tipo] || esc(s.tipo)}</b></div>
     </div>
-    ${s.notas ? `<div class="burbuja burbuja-coach"><small>Indicaciones de Vic</small>${esc(s.notas)}</div>` : ''}
-    <p class="sec-t">Ejercicios</p>
+    ${guiaVista ? '' : `<div class="card guia" id="guia">
+      <p class="card-t" style="margin-bottom:12px">Cómo usar tu sesión <button class="link" type="button" id="guia-ok">Entendido</button></p>
+      <ol class="pasos">
+        <li><b>Lee los comentarios de Vic.</b> Son los recuadros con su firma. Ahí va lo importante de cada ejercicio.</li>
+        <li><b>Haz el ejercicio y anota lo que hiciste.</b> Peso y repeticiones, o tu tiempo. No tiene que ser exacto.</li>
+        <li><b>Al final, marca qué tan dura fue</b> y toca el botón para guardar.</li>
+      </ol></div>`}
+    ${s.notas ? notaVic('Indicaciones para hoy', s.notas) : ''}
+    <p class="sec-t">Ejercicios <span class="avance" id="avance"></span></p>
     <form id="f-sesion" class="form" style="gap:12px">
       ${s.items.map((it, k) => `
-        <div class="ej ${res[it.id] ? 'ok' : ''}">
+        <div class="ej ${res[it.id] ? 'ok' : ''}" data-ej>
           <div class="ej-cab"><span class="ej-num">${k + 1}</span>
-            <div><h3>${esc(it.ejercicio)}</h3><p>${esc(pres(it))}</p></div>
-            ${it.video_url ? `<a href="${esc(it.video_url)}" target="_blank" rel="noopener">Técnica</a>` : ''}</div>
-          ${it.nota ? `<p class="nota-ej">${esc(it.nota)}</p>` : ''}
-          <input name="r_${it.id}" value="${esc(res[it.id] || '')}" aria-label="Resultado real de ${esc(it.ejercicio)}" placeholder="${cardio || it.ritmo ? 'Tu tiempo o ritmo real' : 'Tu carga y reps reales · ej. 22 kg × 8, 8, 7'}">
+            <div><h3>${esc(it.ejercicio)}</h3></div>
+            ${it.video_url ? `<a class="ej-video" href="${esc(it.video_url)}" target="_blank" rel="noopener">Ver técnica</a>` : ''}</div>
+          ${datos(it).length ? `<dl class="ej-datos">${datos(it).map(([e, x]) => `<div><dt>${e}</dt><dd>${esc(x)}</dd></div>`).join('')}</dl>` : ''}
+          ${it.nota ? notaVic('Comentario de Vic', it.nota) : ''}
+          <label class="ej-real">Lo que hiciste
+            <input name="r_${it.id}" value="${esc(res[it.id] || '')}" placeholder="${cardio || it.ritmo ? 'Ej. 34 min a 6:50 /km' : 'Ej. 22 kg × 8, 8, 7'}">
+          </label>
         </div>`).join('')}
       <div class="card" style="padding:18px">
-        <p class="card-t" style="margin-bottom:12px">¿Qué tan dura fue? <small>RPE 1–10</small></p>
+        <p class="card-t" style="margin-bottom:6px">¿Qué tan dura fue la sesión?</p>
+        <p class="tenue" style="font-size:13px;margin:0 0 14px">Elige un número. 1 es muy fácil, 10 es tu máximo esfuerzo.</p>
         <div class="escala redonda">${Array.from({ length: 10 }, (_, i) => i + 1).map(n => `<label><input type="radio" name="rpe" value="${n}" ${reg?.rpe === n ? 'checked' : ''}><span>${n}</span></label>`).join('')}</div>
-        <p class="tenue" style="font-size:12px;margin:10px 0 16px">1 = muy fácil · 10 = esfuerzo máximo</p>
-        <label>Nota para Vic (opcional)<textarea name="nota" rows="2" placeholder="Cómo te sentiste, molestias, dudas…">${esc(reg?.nota || '')}</textarea></label>
+        <p class="rpe-guia" id="rpe-guia">${reg?.rpe ? rpeTexto(reg.rpe) : ''}</p>
+        <label>Mensaje para Vic (opcional)<textarea name="nota" rows="2" placeholder="Cómo te sentiste, molestias, dudas…">${esc(reg?.nota || '')}</textarea></label>
       </div>
       <div class="cta">
-        <button class="btn btn-full btn-pill ${reg?.completada ? '' : 'btn-rojo'}" type="submit">${reg?.completada ? 'Guardar cambios' : 'Marcar como completada'}</button>
+        <button class="btn btn-full btn-pill ${reg?.completada ? '' : 'btn-rojo'}" type="submit">${reg?.completada ? 'Guardar cambios' : 'Terminé, guardar sesión'}</button>
         ${reg ? '<button class="link" type="button" id="desmarcar" style="align-self:center">Desmarcar sesión</button>' : ''}
       </div>
     </form>`;
+  const guiaOk = $('#guia-ok');
+  if (guiaOk) guiaOk.onclick = () => { try { localStorage.setItem('vsl-guia-sesion', '1'); } catch {} $('#guia').remove(); };
+  const avance = () => {
+    const ejs = $$('[data-ej]'); const n = ejs.filter(e => { const ok = e.querySelector('input').value.trim() !== ''; e.classList.toggle('ok', ok); return ok; }).length;
+    $('#avance').textContent = ejs.length ? `${n} de ${ejs.length} anotados` : '';
+  };
+  $$('[data-ej] input').forEach(i => i.addEventListener('input', avance)); avance();
+  $$('#f-sesion [name=rpe]').forEach(r => r.addEventListener('change', () => { $('#rpe-guia').textContent = rpeTexto(Number(r.value)); }));
   $('#f-sesion').onsubmit = async e => {
     e.preventDefault();
     const d = datosForm(e.target); const resultados = {};

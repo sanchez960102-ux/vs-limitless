@@ -331,7 +331,7 @@ function editarSesion(s, alCerrar) {
 
 function filaItem(it, real) {
   const pres = [it.series && it.series + ' series', it.reps, it.carga, it.ritmo, it.descanso && 'desc. ' + it.descanso].filter(Boolean).join(' · ');
-  return `<div class="item-ed"><div class="fila-cuerpo"><p class="fila-t">${esc(it.ejercicio)}</p><p class="fila-s">${esc(pres)}</p>${real ? `<p class="fila-s" style="color:#7ee787">Real: ${esc(real)}</p>` : ''}</div>
+  return `<div class="item-ed"><div class="fila-cuerpo"><p class="fila-t">${esc(it.ejercicio)}</p><p class="fila-s">${esc(pres)}</p>${it.nota ? `<p class="fila-s">Tu comentario: «${esc(it.nota)}»</p>` : ''}${real ? `<p class="fila-s" style="color:#7ee787">Real: ${esc(real)}</p>` : ''}</div>
     <div class="acciones"><button class="link" data-edit="${it.id}">Editar</button><button class="link link-peligro" data-del="${it.id}">Quitar</button></div></div>`;
 }
 
@@ -343,7 +343,7 @@ function editarItem(it, alGuardar) {
     <label>Descanso<input name="descanso" value="${esc(it.descanso || '')}" placeholder="90 s"></label></div>
     <div class="grid2"><label>Carga<input name="carga" value="${esc(it.carga || '')}" placeholder="20 kg · RPE 7"></label>
     <label>Ritmo / zona<input name="ritmo" value="${esc(it.ritmo || '')}" placeholder="6:40 /km · Z2"></label></div>
-    <label>Indicación (opcional)<input name="nota" value="${esc(it.nota || '')}" placeholder="Bajar en 3 segundos"></label>
+    <label>Comentario para el miembro (opcional)<textarea name="nota" rows="3" placeholder="Baja en 3 segundos y aprieta glúteo arriba. Si molesta la rodilla, reduce el rango.">${esc(it.nota || '')}</textarea></label>
     <label>Video de referencia (opcional)<input type="url" name="video_url" value="${esc(it.video_url || '')}" placeholder="https://instagram.com/…"></label>
     <button class="btn btn-rojo" type="submit">Guardar ejercicio</button></form>`, d => {
     $('#f-item', d).onsubmit = async e => { e.preventDefault(); await db.guardarItem({ ...it, ...datosForm(e.target) }); d.close(); aviso('Ejercicio guardado'); alGuardar(); };

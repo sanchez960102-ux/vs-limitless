@@ -174,10 +174,15 @@ function crearDemo() {
     { dia: 4, titulo: 'Fuerza tren superior + core', tipo: 'fuerza', items: [['Press de banca mancuerna', '4', '8', '2×12 kg', '', '90 s'], ['Remo con mancuerna', '4', '10', '16 kg', '', '60 s'], ['Press militar', '3', '10', '2×8 kg', '', '60 s'], ['Dead bug', '3', '10 c/lado', '', '', '45 s']] },
     { dia: 6, titulo: 'Fondo largo', tipo: 'carrera', items: [['Carrera continua', '1', '50 min', '', '6:50–7:10 /km', ''], ['Movilidad de cadera', '1', '8 min', '', '', '']] }
   ];
+  const NOTAS_DEMO = {
+    'Sentadilla goblet': 'Baja en 3 segundos y empuja el piso al subir. Rodillas siguiendo la punta del pie. Si las 8 salen fáciles, sube a 22 kg la próxima.',
+    'Peso muerto rumano': 'Cadera hacia atrás, espalda neutra. Para cuando sientas el estiramiento atrás del muslo, no antes de la rodilla.',
+    'Carrera continua': 'Tienes que poder hablar en frases completas. Si no, baja el ritmo aunque se sienta lento.'
+  };
   for (let sem = 1; sem <= 4; sem++) plantilla.forEach((p, k) => {
-    const s = { id: uuid(), bloque_id: 'b1', miembro_id: 'ana', semana: sem, dia: p.dia, titulo: p.titulo, tipo: p.tipo, notas: '', orden: k };
+    const s = { id: uuid(), bloque_id: 'b1', miembro_id: 'ana', semana: sem, dia: p.dia, titulo: p.titulo, tipo: p.tipo, notas: p.dia === 1 ? 'Calienta 8 minutos con movilidad de cadera antes de empezar. Hoy la técnica manda sobre el peso.' : '', orden: k };
     db.sesiones.push(s);
-    p.items.forEach(([ejercicio, series, reps, carga, ritmo, descanso], o) => db.items.push({ id: uuid(), sesion_id: s.id, ejercicio, series, reps, carga, ritmo, descanso, nota: '', video_url: '', orden: o }));
+    p.items.forEach(([ejercicio, series, reps, carga, ritmo, descanso], o) => db.items.push({ id: uuid(), sesion_id: s.id, ejercicio, series, reps, carga, ritmo, descanso, nota: NOTAS_DEMO[ejercicio] || '', video_url: '', orden: o }));
   });
   db.sesiones.filter(s => s.semana < 3).forEach((s, k) => { if (k !== 3) db.registros.push({ id: uuid(), sesion_id: s.id, miembro_id: 'ana', completada: true, rpe: 6 + (k % 3), nota: '', resultados: {}, created_at: hace(14 - k * 2) }); });
   const s3 = db.sesiones.find(s => s.semana === 3 && s.dia === 1);
