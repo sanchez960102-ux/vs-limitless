@@ -81,3 +81,30 @@ create policy "ve sus items" on public.items for select to authenticated
 drop policy if exists "sus registros" on public.registros;
 create policy "sus registros" on public.registros for all to authenticated
   using (miembro_id = auth.uid() and public.al_dia()) with check (miembro_id = auth.uid() and public.al_dia());
+
+-- Baja y eliminación ---------------------------------------------------------------
+-- Un miembro pausado o dado de baja tampoco recibe su plan.
+create or replace function public.al_dia() returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((
+    select p.rol <> 'miembro'
+        or (p.estado = 'activo' and (
+              p.pagado_hasta is null
+              or p.pagado_hasta + coalesce((select valor::int from public.ajustes where clave = 'cobro_gracia'), 5) >= public.hoy_gt()))
+    from public.perfiles p where p.id = auth.uid()), false)
+$$;
+
+-- Elimina la cuenta y todo su historial (en cascada). Solo el coach.
+create or replace function public.eliminar_miembro(p_miembro uuid) returns void
+language plpgsql security definer set search_path = public, auth as $$
+declare v_correo text; v_rol text;
+begin
+  if not public.es_coach() then raise exception 'Solo el coach elimina miembros'; end if;
+  select correo, rol into v_correo, v_rol from public.perfiles where id = p_miembro;
+  if v_correo is null then raise exception 'Miembro no encontrado'; end if;
+  if v_rol = 'coach' then raise exception 'No se puede eliminar al coach'; end if;
+  delete from public.invitaciones where lower(correo) = lower(v_correo);
+  delete from auth.users where id = p_miembro;
+end $$;
+revoke execute on function public.eliminar_miembro(uuid) from public, anon;
+grant execute on function public.eliminar_miembro(uuid) to authenticated;

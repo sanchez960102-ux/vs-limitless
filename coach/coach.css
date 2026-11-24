@@ -154,3 +154,4 @@ input,select,textarea{background:rgba(10,10,12,.45)!important;border-color:rgba(
 .lista>.fila{padding:16px 18px;margin-bottom:10px}
 .ficha-ctl select{border-radius:20px!important}
 .lista{border-top:0}
+.menu-hoja{display:flex;flex-direction:column;gap:14px}.menu-hoja .h2{margin:0}

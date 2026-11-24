@@ -158,6 +158,7 @@ async function crearSupabase() {
         { clave: 'cobro_whatsapp', valor: a.whatsapp || '' },
         { clave: 'cobro_gracia', valor: String(a.gracia ?? 5) }]));
     },
+    async eliminarMiembro(id) { ok(await sb.rpc('eliminar_miembro', { p_miembro: id })); },
     async pagos(miembroId) { return ok(await sb.from('pagos').select('*').eq('miembro_id', miembroId).order('created_at', { ascending: false })); },
     async registrarPago(miembroId, { meses, monto, metodo, nota }) {
       return ok(await sb.rpc('registrar_pago', { p_miembro: miembroId, p_meses: meses, p_monto: monto, p_metodo: metodo || null, p_nota: nota || null }));
@@ -304,6 +305,7 @@ function crearDemo() {
     async resumenMiembro(m) { return resumen(api, m); },
     async ajustesCobro() { return espera({ ...db.cobro }); },
     async guardarAjustesCobro(a) { db.cobro = { ...a, gracia: Number(a.gracia) }; return espera(); },
+    async eliminarMiembro(id) { db.perfiles = db.perfiles.filter(p => p.id !== id); return espera(); },
     async pagos(mid) { return espera(db.pagos.filter(x => x.miembro_id === mid)); },
     async registrarPago(mid, { meses, monto, metodo, nota }) {
       const m = db.perfiles.find(x => x.id === mid); const hoy = hoyISO();

@@ -33,6 +33,7 @@ async function arrancar() {
   if (!yo) return pantallaAcceso();
   if (yo.rol === 'coach') { location.href = '/coach/' + location.search; return; }
   if (yo.rol === 'pendiente') return pantallaPendiente();
+  if (yo.estado && yo.estado !== 'activo') return pantallaInactivo();
   cobro = await db.ajustesCobro().catch(() => ({ instrucciones: '', whatsapp: '', gracia: 5 }));
   pago = estadoPago(yo, cobro.gracia);
   if (pago.tipo === 'bloqueado') return pantallaPago();
@@ -70,6 +71,20 @@ function bandaPago() {
   if (pago?.tipo === 'gracia') return `<a class="banda-pago urgente" href="#/cuenta" id="banda-pago"><b>Mensualidad vencida · tu acceso se pausa el ${fechaLarga(pago.limite)}</b><span>Ver cómo pagar →</span></a>`;
   return '';
 }
+function pantallaInactivo() {
+  const baja = yo.estado === 'baja';
+  raiz.innerHTML = `<main class="acceso"><div class="acceso-in">
+    <img src="/img/vs-limitless-horizontal-claro.svg" alt="VS Limitless" width="214" height="64">
+    <div><p class="eyebrow"><span class="punto"></span>${baja ? 'Acceso cerrado' : 'Plan en pausa'}</p>
+      <h1 class="h1">${baja ? 'Tu plan<br><span class="tenue">terminó.</span>' : 'Tu plan está<br><span class="tenue">en pausa.</span>'}</h1></div>
+    <p class="suave">${baja ? 'Gracias por entrenar con el Equipo Limitless. Si quieres volver, escríbele a Vic y retomamos desde donde lo dejaste.' : 'Vic pausó tu plan por ahora. Tu progreso sigue guardado. Escríbele si tienes dudas o quieres retomarlo.'}</p>
+    <button class="btn btn-linea btn-full btn-pill" id="revisar">Revisar de nuevo</button>
+    <button class="link" id="salir" style="align-self:center">Cerrar sesión</button>
+  </div></main>`;
+  $('#revisar').onclick = () => arrancar();
+  $('#salir').onclick = async () => { await db.salir(); arrancar(); };
+}
+
 function pantallaPago() {
   raiz.innerHTML = `<main class="acceso"><div class="acceso-in">
     <img src="/img/vs-limitless-horizontal-claro.svg" alt="VS Limitless" width="214" height="64">

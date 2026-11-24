@@ -257,12 +257,29 @@ async function vistaMiembro(v, id, tab = 'plan') {
       <div class="ficha-ctl">
         <select id="plan" aria-label="Plan">${PLANES.map(p => `<option ${p === m.plan ? 'selected' : ''}>${p}</option>`).join('')}</select>
         <select id="estado" aria-label="Estado">${['activo', 'pausado', 'baja'].map(e => `<option ${e === m.estado ? 'selected' : ''}>${e}</option>`).join('')}</select>
+        <button class="link link-peligro" id="eliminar" type="button">Eliminar</button>
       </div>
     </div>
     <nav class="tabs">${tabs.map(([k, t]) => `<a href="#/miembro/${id}/${k}" ${k === tab ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>
     <div id="panel" class="vista"></div>`;
   $('#plan').onchange = async e => { await db.actualizarMiembro(id, { plan: e.target.value }); aviso('Plan actualizado'); };
-  $('#estado').onchange = async e => { await db.actualizarMiembro(id, { estado: e.target.value }); aviso('Estado actualizado'); };
+  $('#estado').onchange = async e => {
+    const v = e.target.value;
+    await db.actualizarMiembro(id, { estado: v });
+    aviso(v === 'activo' ? 'Miembro activo: vuelve a ver su plan' : v === 'pausado' ? 'Plan pausado: ya no puede verlo hasta que lo reactives' : 'Dado de baja: su acceso se cerró. Su historial queda guardado.');
+  };
+  $('#eliminar').onclick = () => dialogo(`<div class="menu-hoja">
+      <p class="eyebrow">Eliminar miembro</p><h2 class="h2">¿Eliminar a ${esc(m.nombre || m.correo)}?</h2>
+      <p class="suave" style="margin:0">Se borra su cuenta y todo su historial: plan, registros, check-ins, videos y pagos. <b>No se puede deshacer.</b></p>
+      <p class="tenue" style="font-size:13px;margin:0">Si solo quieres cortarle el acceso y conservar su historial, cambia su estado a «baja».</p>
+      <label>Escribe ELIMINAR para confirmar<input id="conf" autocomplete="off"></label>
+      <button class="btn btn-rojo btn-full" id="si" disabled>Eliminar definitivamente</button></div>`, d => {
+    $('#conf', d).oninput = ev => { $('#si', d).disabled = ev.target.value.trim().toUpperCase() !== 'ELIMINAR'; };
+    $('#si', d).onclick = async () => {
+      try { await db.eliminarMiembro(id); d.close(); aviso('Miembro eliminado'); location.hash = '#/miembros'; }
+      catch { aviso('No se pudo eliminar.', 'error'); }
+    };
+  });
   const p = $('#panel'); cargando(p);
   const paneles = { plan: panelPlan, checkins: panelCheckins, videos: panelVideos, registros: panelRegistros, progreso: panelProgreso, pagos: panelPagos };
   await (paneles[tab] || panelPlan)(p, m);
