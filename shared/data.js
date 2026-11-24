@@ -48,6 +48,8 @@ async function crearSupabase() {
     async enviarEnlace(correo, ruta) {
       ok(await sb.auth.signInWithOtp({ email: correo, options: { emailRedirectTo: location.origin + ruta } }));
     },
+    async entrarConClave(correo, clave) { ok(await sb.auth.signInWithPassword({ email: correo, password: clave })); },
+    async crearClave(clave) { ok(await sb.auth.updateUser({ password: clave })); },
     async salir() { await sb.auth.signOut(); },
     alCambiarSesion(fn) { sb.auth.onAuthStateChange((_e, s) => fn(s)); },
     async yo() { const id = await uid(); if (!id) return null; return ok(await sb.from('perfiles').select('*').eq('id', id).maybeSingle()); },
@@ -199,6 +201,8 @@ function crearDemo() {
     demo: true,
     async sesionActiva() { return yo ? { user: { id: yo.id } } : null; },
     async enviarEnlace() { },
+    async entrarConClave() { },
+    async crearClave() { },
     async entrarDemo(rol) { yo = rol === 'coach' ? coach : ana; },
     async salir() { yo = null; },
     alCambiarSesion() { },

@@ -1,5 +1,6 @@
 import { crearDatos, DIAS, semanaActual, diaSemanaHoy, diasDesde, puedeVideos, checkinCada } from '/shared/data.js';
 import { $, $$, esc, fecha, aviso, cargando, vacio, datosForm, dialogo, registrarSW } from '/shared/ui.js';
+import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
 
 const raiz = $('#raiz');
 let db, yo, bloque;
@@ -27,6 +28,7 @@ async function init() {
 async function arrancar() {
   const s = await db.sesionActiva();
   if (!s) return pantallaAcceso();
+  if (pideCrearClave()) return pantallaCrearClave(raiz, db, () => arrancar());
   yo = await db.yo();
   if (!yo) return pantallaAcceso();
   if (yo.rol === 'coach') { location.href = '/coach/' + location.search; return; }
@@ -48,22 +50,12 @@ function pantallaAcceso() {
       <button class="btn btn-full btn-pill" id="demo-miembro">Entrar como miembro</button>
       <a class="btn btn-linea btn-full btn-pill" href="/coach/?demo">Ver panel del coach</a>
     ` : `
-      <form class="form" id="f-acceso">
-        <label>Tu correo<input type="email" name="correo" required autocomplete="email" placeholder="tu@correo.com"></label>
-        <button class="btn btn-full btn-pill" type="submit">Enviarme el enlace de acceso</button>
-      </form>
-      <p class="acceso-pie">Te enviamos un enlace a tu correo. Sin contraseñas. Usa el mismo correo con el que aplicaste.</p>
+      <div id="acceso-form"></div>
+      <p class="acceso-pie">Usa el mismo correo con el que aplicaste al equipo.</p>
     `}
   </div></main>`;
   if (db.demo) { $('#demo-miembro').onclick = async () => { await db.entrarDemo('miembro'); arrancar(); }; return; }
-  $('#f-acceso').onsubmit = async e => {
-    e.preventDefault();
-    const btn = e.target.querySelector('button'); btn.disabled = true; btn.textContent = 'Enviando…';
-    try {
-      await db.enviarEnlace(datosForm(e.target).correo, '/app/');
-      e.target.outerHTML = `<div class="tarjeta"><p class="h3">Revisa tu correo</p><p class="suave" style="margin:8px 0 0">Te enviamos un enlace para entrar. Ábrelo desde este mismo dispositivo.</p></div>`;
-    } catch (err) { btn.disabled = false; btn.textContent = 'Enviarme el enlace de acceso'; aviso('No se pudo enviar. Revisa el correo e intenta de nuevo.', 'error'); }
-  };
+  formAcceso($('#acceso-form'), db, '/app/');
 }
 
 function pantallaPendiente() {

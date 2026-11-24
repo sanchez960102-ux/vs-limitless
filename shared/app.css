@@ -123,3 +123,4 @@ textarea{resize:vertical}
 
 @media (max-width:600px){.grid2,.grid3{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.acceso-alt{align-self:center;margin-top:4px;font-size:14px}

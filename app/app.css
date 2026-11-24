@@ -194,7 +194,7 @@ body::before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none
 @keyframes deriva{to{transform:translate3d(3%,-4%,0) scale(1.06)}}
 @media (prefers-reduced-motion:reduce){body::before{animation:none}}
 
-.card,.rapido,.stats,.ej,.upsell,.dialogo,.burbuja,.btn-redondo,.avatar,.pildoras button,.demo-banda{
+.card,.tarjeta,.rapido,.stats,.ej,.upsell,.dialogo,.burbuja,.btn-redondo,.avatar,.pildoras button,.demo-banda{
   background:var(--vidrio);border:1px solid var(--vidrio-borde);
   -webkit-backdrop-filter:var(--vidrio-blur);backdrop-filter:var(--vidrio-blur);
   box-shadow:var(--vidrio-brillo),var(--vidrio-sombra)}
@@ -286,3 +286,4 @@ body::before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none
 /* Navegación: todos los nombres visibles para orientarse */
 .nav a span{opacity:1;font-size:10.5px}
 .nav a{color:#c9c5bf}
+.tarjeta{border-radius:var(--rad);padding:20px}

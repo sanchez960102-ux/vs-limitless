@@ -1,5 +1,6 @@
 import { crearDatos, DIAS, PLANES, TIPOS, semanaActual, diaSemanaHoy, lunesDe, puedeVideos } from '/shared/data.js';
 import { $, $$, esc, fecha, hace, aviso, cargando, vacio, datosForm, dialogo, barraProgreso, lineaSVG, registrarSW } from '/shared/ui.js';
+import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
 
 const raiz = $('#raiz');
 const URL_APP = location.origin + '/app/';
@@ -18,6 +19,7 @@ async function init() {
 async function arrancar() {
   const s = await db.sesionActiva();
   if (!s) return pantallaAcceso();
+  if (pideCrearClave()) return pantallaCrearClave(raiz, db, () => arrancar());
   yo = await db.yo();
   if (!yo || yo.rol !== 'coach') return pantallaNoCoach();
   pintarMarco();
@@ -31,15 +33,10 @@ function pantallaAcceso() {
     <div><p class="eyebrow"><span class="punto"></span>Panel del coach</p><h1 class="h1">Tu equipo,<br><span class="tenue">en un vistazo.</span></h1></div>
     ${db.demo ? `<p class="suave">Estás viendo el panel en <b>modo demostración</b>, con miembros y aplicaciones de ejemplo.</p>
       <button class="btn btn-full" id="demo">Entrar al panel</button><a class="btn btn-linea btn-full" href="/app/?demo">Ver app del miembro</a>`
-      : `<form class="form" id="f-acceso"><label>Tu correo de coach<input type="email" name="correo" required autocomplete="email"></label>
-      <button class="btn btn-full" type="submit">Enviarme el enlace de acceso</button></form>`}
+      : `<div id="acceso-form"></div>`}
   </div></main>`;
   if (db.demo) { $('#demo').onclick = async () => { await db.entrarDemo('coach'); arrancar(); }; return; }
-  $('#f-acceso').onsubmit = async e => {
-    e.preventDefault(); const btn = e.target.querySelector('button'); btn.disabled = true;
-    try { await db.enviarEnlace(datosForm(e.target).correo, '/coach/'); e.target.outerHTML = '<div class="tarjeta"><p class="h3">Revisa tu correo</p><p class="suave" style="margin:8px 0 0">Abre el enlace desde este dispositivo.</p></div>'; }
-    catch { btn.disabled = false; aviso('No se pudo enviar el enlace.', 'error'); }
-  };
+  formAcceso($('#acceso-form'), db, '/coach/', { etiqueta: 'Tu correo de coach' });
 }
 
 function pantallaNoCoach() {
@@ -141,7 +138,7 @@ function dialogoInvitar(pre, alInvitar) {
         await db.invitar({ ...datos, aplicacion_id: pre.id || null });
         await alInvitar?.();
         const nombre = datos.nombre.split(' ')[0];
-        const msg = `¡Hola ${nombre}! Te doy la bienvenida al Equipo Limitless. Entra a ${URL_APP} con tu correo ${datos.correo} y ahí verás tu plan. Te llega un enlace de acceso, sin contraseñas.`;
+        const msg = `¡Hola ${nombre}! Te doy la bienvenida al Equipo Limitless. Entra a ${URL_APP} con tu correo ${datos.correo}, toca «¿Primera vez?» y crea tu contraseña. Después agrega la app a tu pantalla de inicio y entra siempre con tu correo y contraseña.`;
         const wa = pre.whatsapp ? 'https://wa.me/' + pre.whatsapp.replace(/\D/g, '') + '?text=' + encodeURIComponent(msg) : 'https://wa.me/?text=' + encodeURIComponent(msg);
         d.querySelector('form').outerHTML = `<div class="form"><div><p class="eyebrow"><span class="punto"></span>Invitación creada</p><h2 class="h2">${esc(datos.nombre)} ya puede entrar</h2></div>
           <p class="suave" style="margin:0">Envíale este mensaje para que entre a su app:</p>
