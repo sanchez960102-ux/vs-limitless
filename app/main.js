@@ -1,9 +1,9 @@
-import { crearDatos, DIAS, semanaActual, diaSemanaHoy, diasDesde, puedeVideos, checkinCada } from '/shared/data.js';
+import { crearDatos, DIAS, semanaActual, diaSemanaHoy, diasDesde, puedeVideos, checkinCada, estadoPago } from '/shared/data.js';
 import { $, $$, esc, fecha, aviso, cargando, vacio, datosForm, dialogo, registrarSW } from '/shared/ui.js';
 import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
 
 const raiz = $('#raiz');
-let db, yo, bloque;
+let db, yo, bloque, cobro, pago;
 
 const FOTOS = { fuerza: '/img/app/fuerza.jpg', carrera: '/img/app/carrera.jpg', bici: '/img/app/bici.jpg', movilidad: '/img/app/movilidad.jpg', mixta: '/img/app/movilidad.jpg' };
 const TIPO_TXT = { fuerza: 'Fuerza', carrera: 'Carrera', bici: 'Bici', movilidad: 'Movilidad', mixta: 'Mixta' };
@@ -33,10 +33,54 @@ async function arrancar() {
   if (!yo) return pantallaAcceso();
   if (yo.rol === 'coach') { location.href = '/coach/' + location.search; return; }
   if (yo.rol === 'pendiente') return pantallaPendiente();
+  cobro = await db.ajustesCobro().catch(() => ({ instrucciones: '', whatsapp: '', gracia: 5 }));
+  pago = estadoPago(yo, cobro.gracia);
+  if (pago.tipo === 'bloqueado') return pantallaPago();
   bloque = await db.bloqueActivo(yo.id);
   pintarMarco();
   window.onhashchange = enrutar;
   enrutar();
+  if (pago.tipo === 'gracia') ventanaPago();
+}
+
+/* -------------------------------------------------------------- Pagos */
+const fechaLarga = iso => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('es-GT', { day: 'numeric', month: 'long' }) : '';
+function linkWhatsApp() {
+  if (!cobro?.whatsapp) return '';
+  const txt = `Hola Vic, soy ${yo.nombre || yo.correo}. Te envío el comprobante de mi mensualidad del plan ${yo.plan || ''}.`;
+  return `https://wa.me/${cobro.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(txt)}`;
+}
+function bloqueComoPagar() {
+  const wa = linkWhatsApp();
+  return `${cobro?.instrucciones ? `<div class="nota-vic"><span class="nota-vic-firma" aria-hidden="true">VS</span><div><small>Cómo pagar</small><p>${esc(cobro.instrucciones)}</p></div></div>` : ''}
+    ${wa ? `<a class="btn btn-full btn-pill btn-rojo" href="${wa}" target="_blank" rel="noopener">Enviar comprobante por WhatsApp</a>` : ''}`;
+}
+function ventanaPago() {
+  try { if (sessionStorage.getItem('vsl-aviso-pago') === yo.pagado_hasta) return; sessionStorage.setItem('vsl-aviso-pago', yo.pagado_hasta); } catch {}
+  dialogo(`<div class="menu-hoja aviso-pago">
+      <p class="eyebrow"><span class="punto"></span>Mensualidad pendiente</p>
+      <h2 class="h2">Tu mensualidad venció ${pago.vencido === 1 ? 'ayer' : `hace ${pago.vencido} días`}</h2>
+      <p class="suave" style="margin:0">Tu plan sigue abierto hasta el <b>${fechaLarga(pago.limite)}</b>. Si para entonces no está registrado tu pago, tu acceso se pausa hasta que te pongas al día.</p>
+      ${bloqueComoPagar()}
+      <button class="btn btn-linea btn-full btn-pill" type="button" id="luego">Recordármelo después</button>
+    </div>`, d => { $('#luego', d).onclick = () => d.close(); });
+}
+function bandaPago() {
+  if (pago?.tipo === 'por_vencer') return `<a class="banda-pago" href="#/cuenta" id="banda-pago"><b>${pago.dias === 0 ? 'Tu mensualidad vence hoy' : `Tu mensualidad vence en ${pago.dias} día${pago.dias > 1 ? 's' : ''}`}</b><span>Ver cómo pagar →</span></a>`;
+  if (pago?.tipo === 'gracia') return `<a class="banda-pago urgente" href="#/cuenta" id="banda-pago"><b>Mensualidad vencida · tu acceso se pausa el ${fechaLarga(pago.limite)}</b><span>Ver cómo pagar →</span></a>`;
+  return '';
+}
+function pantallaPago() {
+  raiz.innerHTML = `<main class="acceso"><div class="acceso-in">
+    <img src="/img/vs-limitless-horizontal-claro.svg" alt="VS Limitless" width="214" height="64">
+    <div><p class="eyebrow"><span class="punto"></span>Acceso en pausa</p><h1 class="h1">Tu plan está<br><span class="tenue">en pausa.</span></h1></div>
+    <p class="suave">Tu mensualidad venció el ${fechaLarga(yo.pagado_hasta)}. Tu progreso y tus registros siguen guardados: en cuanto Vic registre tu pago, todo vuelve a estar como lo dejaste.</p>
+    ${bloqueComoPagar()}
+    <button class="btn btn-linea btn-full btn-pill" id="revisar">Ya pagué, revisar de nuevo</button>
+    <button class="link" id="salir" style="align-self:center">Cerrar sesión</button>
+  </div></main>`;
+  $('#revisar').onclick = () => arrancar();
+  $('#salir').onclick = async () => { await db.salir(); arrancar(); };
 }
 
 /* ------------------------------------------------------------- Acceso */
@@ -92,6 +136,8 @@ function pintarMarco() {
   $('#perfil').onclick = () => dialogo(`<div class="menu-hoja">
       <p class="eyebrow">Mi cuenta</p><h2 class="h2">${esc(yo.nombre || '')}</h2>
       <p class="suave" style="margin:0">${esc(yo.correo)} · Plan ${esc(yo.plan || '')}</p>
+      ${yo.pagado_hasta ? `<div class="burbuja"><small>Mensualidad</small>${pago.tipo === 'gracia' ? 'Vencida el ' : 'Pagada hasta el '}${fechaLarga(yo.pagado_hasta)}</div>` : ''}
+      ${['gracia', 'por_vencer'].includes(pago.tipo) ? bloqueComoPagar() : ''}
       ${yo.objetivo ? `<div class="burbuja"><small>Mi objetivo</small>${esc(yo.objetivo)}</div>` : ''}
       <button class="btn btn-linea btn-full btn-pill" id="salir">Cerrar sesión</button></div>`, d => {
     $('#salir', d).onclick = async () => { d.close(); await db.salir(); location.hash = ''; arrancar(); };
@@ -111,7 +157,8 @@ function enrutar() {
   $$('.nav a').forEach(a => a.dataset.r === activa ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
   const v = $('#vista'); cargando(v); window.scrollTo(0, 0);
   const vistas = { hoy: vistaHoy, plan: vistaPlan, sesion: vistaSesion, checkin: vistaCheckin, tecnica: vistaTecnica, progreso: vistaProgreso };
-  (vistas[ruta] || vistaHoy)(v, param).catch(err => { console.error(err); v.innerHTML = vacio('Algo salió mal', 'Recarga la página o intenta en un momento.'); });
+  if (ruta === 'cuenta') { history.replaceState(null, '', '#/hoy'); $('#perfil').click(); return enrutar(); }
+  (vistas[ruta] || vistaHoy)(v, param).then(() => { if (!ruta || ruta === 'hoy') v.insertAdjacentHTML('afterbegin', bandaPago()); }).catch(err => { console.error(err); v.innerHTML = vacio('Algo salió mal', 'Recarga la página o intenta en un momento.'); });
 }
 
 /* ---------------------------------------------------------- Piezas UI */

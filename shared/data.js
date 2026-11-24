@@ -7,7 +7,7 @@ export const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sáb
 export const PLANES = ['Base', 'Limitless', 'Élite'];
 export const TIPOS = ['fuerza', 'carrera', 'bici', 'movilidad', 'mixta'];
 
-export function hoyISO() { return new Date().toISOString().slice(0, 10); }
+export function hoyISO() { const f = new Date(); return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`; }
 export function diaSemanaHoy() { const d = new Date().getDay(); return d === 0 ? 7 : d; }
 export function semanaActual(bloque) {
   if (!bloque) return 1;
@@ -22,6 +22,23 @@ export function lunesDe(fecha = new Date()) {
 export function diasDesde(iso) { return iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : null; }
 export function puedeVideos(plan) { return plan === 'Limitless' || plan === 'Élite'; }
 export function checkinCada(plan) { return plan === 'Base' ? 30 : 7; }
+
+export const PRECIOS = { Base: { 1: 300 }, Limitless: { 1: 450, 3: 1250 }, 'Élite': { 1: 950, 3: 2650 } };
+
+const fechaLocal = iso => { const [a, m, d] = iso.split('-').map(Number); return new Date(a, m - 1, d); };
+const isoLocal = f => `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
+export function sumarDias(iso, n) { const f = fechaLocal(iso); f.setDate(f.getDate() + n); return isoLocal(f); }
+// Estado de pago: sin control, al día, por vencer (≤3 días), en gracia o bloqueado
+export function estadoPago(perfil, gracia = 5) {
+  if (!perfil?.pagado_hasta) return { tipo: 'sin' };
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const dias = Math.round((fechaLocal(perfil.pagado_hasta) - hoy) / 86400000);
+  if (dias > 3) return { tipo: 'al_dia', dias };
+  if (dias >= 0) return { tipo: 'por_vencer', dias };
+  const vencido = -dias;
+  if (vencido <= gracia) return { tipo: 'gracia', vencido, quedan: gracia - vencido, limite: sumarDias(perfil.pagado_hasta, gracia) };
+  return { tipo: 'bloqueado', vencido };
+}
 
 export function modoDemo() {
   const cfg = window.VSL_CONFIG || {};
@@ -127,7 +144,24 @@ async function crearSupabase() {
       return ok(await sb.from('videos').select('*, perfiles(nombre, correo)').eq('estado', 'pendiente').order('created_at'));
     },
     async revisarVideo(id, comentario) { return ok(await sb.from('videos').update({ comentario, estado: 'revisado' }).eq('id', id).select().single()); },
-    async resumenMiembro(m) { return resumen(api, m); }
+    async resumenMiembro(m) { return resumen(api, m); },
+
+    // Cobros
+    async ajustesCobro() {
+      const filas = ok(await sb.from('ajustes').select('clave, valor').like('clave', 'cobro\\_%'));
+      const o = Object.fromEntries(filas.map(f => [f.clave.replace('cobro_', ''), f.valor]));
+      return { instrucciones: o.instrucciones || '', whatsapp: o.whatsapp || '', gracia: Number(o.gracia ?? 5) };
+    },
+    async guardarAjustesCobro(a) {
+      ok(await sb.from('ajustes').upsert([
+        { clave: 'cobro_instrucciones', valor: a.instrucciones || '' },
+        { clave: 'cobro_whatsapp', valor: a.whatsapp || '' },
+        { clave: 'cobro_gracia', valor: String(a.gracia ?? 5) }]));
+    },
+    async pagos(miembroId) { return ok(await sb.from('pagos').select('*').eq('miembro_id', miembroId).order('created_at', { ascending: false })); },
+    async registrarPago(miembroId, { meses, monto, metodo, nota }) {
+      return ok(await sb.rpc('registrar_pago', { p_miembro: miembroId, p_meses: meses, p_monto: monto, p_metodo: metodo || null, p_nota: nota || null }));
+    }
   };
   return api;
 }
@@ -159,12 +193,14 @@ function crearDemo() {
   const iso = d => d.toISOString().slice(0, 10);
 
   const coach = { id: 'coach', correo: 'laf.victor.sanchez@gmail.com', nombre: 'Vic Sánchez', rol: 'coach', created_at: hace(30) };
-  const ana = { id: 'ana', correo: 'ana@ejemplo.com', nombre: 'Ana López', rol: 'miembro', plan: 'Limitless', estado: 'activo', objetivo: 'Correr mis primeros 10K en abril', created_at: hace(20) };
-  const luis = { id: 'luis', correo: 'luis@ejemplo.com', nombre: 'Luis Méndez', rol: 'miembro', plan: 'Base', estado: 'activo', objetivo: 'Ganar músculo', created_at: hace(12) };
+  const ana = { id: 'ana', correo: 'ana@ejemplo.com', nombre: 'Ana López', rol: 'miembro', plan: 'Limitless', estado: 'activo', pagado_hasta: iso(new Date(Date.now() - 2 * 86400000)), objetivo: 'Correr mis primeros 10K en abril', created_at: hace(20) };
+  const luis = { id: 'luis', correo: 'luis@ejemplo.com', nombre: 'Luis Méndez', rol: 'miembro', plan: 'Base', estado: 'activo', pagado_hasta: iso(new Date(Date.now() + 18 * 86400000)), objetivo: 'Ganar músculo', created_at: hace(12) };
   const db = {
     perfiles: [coach, ana, luis],
     bloques: [{ id: 'b1', miembro_id: 'ana', nombre: 'Bloque 1 · Base aeróbica + fuerza', fecha_inicio: iso(iniBloque), semanas: 4, notas: 'Construir base sin lesionarse.', activo: true, created_at: hace(14) }],
     sesiones: [], items: [], registros: [], checkins: [], videos: [], invitaciones: [],
+    cobro: { instrucciones: 'Transferencia a Banco Industrial · Cuenta monetaria 000-000000-0 a nombre de Víctor Sánchez. Envíame el comprobante por WhatsApp.', whatsapp: '50255555555', gracia: 5 },
+    pagos: [{ id: 'p1', miembro_id: 'ana', fecha: iso(new Date(Date.now() - 32 * 86400000)), monto: 450, meses: 1, metodo: 'Transferencia', nota: '', cubre_hasta: iso(new Date(Date.now() - 2 * 86400000)), created_at: hace(32) }],
     aplicaciones: [
       { id: 'a1', created_at: hace(1), nombre: 'María Fernández', correo: 'maria@ejemplo.com', whatsapp: '+502 5555 1234', ciudad: 'Guatemala', edad: 32, objetivo: 'Running o resistencia', meta: 'Medio maratón en junio', nivel: 'Entreno a veces, sin plan', dias: 4, lugar: 'Gimnasio, Aire libre', lesiones: 'ninguna', por_que_ahora: 'Me inscribí al medio maratón y no quiero improvisar.', ultima_vez: 'Dejé de correr cuando cambié de trabajo y perdí la rutina.', semana_mala: 'Haría lo mínimo y te escribiría para ajustar.', compromiso: 9, plan: 'Limitless', acepta_compromiso: true, estado: 'nueva' },
       { id: 'a2', created_at: hace(3), nombre: 'Jorge Pérez', correo: 'jorge@ejemplo.com', whatsapp: '+502 5555 9876', ciudad: 'Mixco', edad: 27, objetivo: 'Objetivo estético: músculo o grasa', meta: 'Bajar 6 kg', nivel: 'No entreno', dias: 3, lugar: 'Casa', lesiones: 'Dolor de rodilla leve', por_que_ahora: 'Me vi en fotos y quiero cambiar.', ultima_vez: 'Me aburrí a las dos semanas.', semana_mala: 'No sé, probablemente lo dejaría.', compromiso: 5, plan: 'Base', acepta_compromiso: true, estado: 'nueva' }
@@ -265,7 +301,17 @@ function crearDemo() {
     async responderCheckin(id, respuesta) { const c = db.checkins.find(x => x.id === id); c.respuesta = respuesta; return espera(c); },
     async videosPendientes() { return espera(db.videos.filter(v => v.estado === 'pendiente')); },
     async revisarVideo(id, comentario) { const v = db.videos.find(x => x.id === id); Object.assign(v, { comentario, estado: 'revisado' }); return espera(v); },
-    async resumenMiembro(m) { return resumen(api, m); }
+    async resumenMiembro(m) { return resumen(api, m); },
+    async ajustesCobro() { return espera({ ...db.cobro }); },
+    async guardarAjustesCobro(a) { db.cobro = { ...a, gracia: Number(a.gracia) }; return espera(); },
+    async pagos(mid) { return espera(db.pagos.filter(x => x.miembro_id === mid)); },
+    async registrarPago(mid, { meses, monto, metodo, nota }) {
+      const m = db.perfiles.find(x => x.id === mid); const hoy = hoyISO();
+      const base = fechaLocal(m.pagado_hasta && m.pagado_hasta > hoy ? m.pagado_hasta : hoy); base.setMonth(base.getMonth() + Number(meses));
+      m.pagado_hasta = isoLocal(base);
+      db.pagos.unshift({ id: uuid(), miembro_id: mid, fecha: hoy, monto, meses, metodo, nota, cubre_hasta: m.pagado_hasta, created_at: new Date().toISOString() });
+      return espera(m.pagado_hasta);
+    }
   };
   return api;
 }

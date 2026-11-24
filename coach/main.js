@@ -1,4 +1,4 @@
-import { crearDatos, DIAS, PLANES, TIPOS, semanaActual, diaSemanaHoy, lunesDe, puedeVideos } from '/shared/data.js';
+import { crearDatos, DIAS, PLANES, TIPOS, semanaActual, diaSemanaHoy, lunesDe, puedeVideos, estadoPago, PRECIOS, hoyISO } from '/shared/data.js';
 import { $, $$, esc, fecha, hace, aviso, cargando, vacio, datosForm, dialogo, barraProgreso, lineaSVG, registrarSW } from '/shared/ui.js';
 import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
 
@@ -86,7 +86,7 @@ function enrutar() {
 
 /* ------------------------------------------------------------ Miembros */
 async function vistaMiembros(v) {
-  const miembros = await db.miembros();
+  const [miembros, cobro] = await Promise.all([db.miembros(), db.ajustesCobro()]);
   const res = await Promise.all(miembros.map(m => db.resumenMiembro(m)));
   const filas = miembros.map((m, i) => ({ m, r: res[i] }));
   const activos = miembros.filter(m => m.estado === 'activo').length;
@@ -97,7 +97,7 @@ async function vistaMiembros(v) {
 
   v.innerHTML = `
     <div class="titulo"><div><p class="eyebrow">Equipo Limitless</p><h1 class="h1">Miembros</h1></div>
-      <button class="btn" id="invitar">Invitar miembro</button></div>
+      <div class="ficha-ctl"><button class="btn btn-linea" id="cobro">Datos de cobro</button><button class="btn" id="invitar">Invitar miembro</button></div></div>
     <div class="cifras-4">
       <div class="cifra"><span class="num">${activos}</span><small>Activos</small></div>
       <div class="cifra"><span class="num">${alertas}</span><small>Necesitan atención</small></div>
@@ -111,6 +111,7 @@ async function vistaMiembros(v) {
         <td class="col-oculta">${r.adherencia === null ? '<span class="tenue">—</span>' : `<div class="adh"><div class="adh-barra ${r.adherencia < 50 ? 'baja' : ''}"><i style="width:${r.adherencia}%"></i></div><span>${r.hechas}/${r.programadas}</span></div>`}</td>
         <td class="col-oculta tenue">${hace(r.ultima)}</td>
         <td><div class="chips">
+          ${m.estado === 'activo' ? chipPago(estadoPago(m, cobro.gracia)) : ''}
           ${m.estado !== 'activo' ? `<span class="chip">${esc(m.estado)}</span>` : ''}
           ${r.sinPlan ? '<span class="chip chip-alerta">Sin plan</span>' : ''}
           ${r.alerta && !r.sinPlan ? `<span class="chip chip-alerta">${r.inactivo} días inactivo</span>` : ''}
@@ -121,6 +122,32 @@ async function vistaMiembros(v) {
     </tbody></table>` : vacio('Aún no tienes miembros', 'Acepta una aplicación o invita a alguien directamente.')}`;
   $$('tr[data-id]', v).forEach(tr => tr.onclick = () => { location.hash = '#/miembro/' + tr.dataset.id; });
   $('#invitar').onclick = () => dialogoInvitar({});
+  $('#cobro').onclick = () => dialogoCobro(cobro);
+}
+
+function chipPago(e) {
+  if (e.tipo === 'sin') return '<span class="chip">Sin pago registrado</span>';
+  if (e.tipo === 'por_vencer') return `<span class="chip chip-ambar">${e.dias === 0 ? 'Vence hoy' : `Vence en ${e.dias} d`}</span>`;
+  if (e.tipo === 'gracia') return `<span class="chip chip-alerta">Pago vencido ${e.vencido} d</span>`;
+  if (e.tipo === 'bloqueado') return `<span class="chip chip-alerta">Acceso pausado</span>`;
+  return '';
+}
+
+function dialogoCobro(cobro) {
+  dialogo(`<form class="form" id="f-cobro">
+      <div><p class="eyebrow">Cobros</p><h2 class="h2">Datos de cobro</h2></div>
+      <p class="suave" style="margin:0">Esto es lo que ven tus miembros cuando su mensualidad está por vencer o vencida.</p>
+      <label>Cómo pagarte<textarea name="instrucciones" rows="4" placeholder="Transferencia a Banco Industrial · Cuenta monetaria 000-000000-0 a nombre de Víctor Sánchez. Envíame el comprobante por WhatsApp.">${esc(cobro.instrucciones)}</textarea></label>
+      <div class="grid2"><label>Tu WhatsApp para comprobantes<input name="whatsapp" inputmode="tel" value="${esc(cobro.whatsapp)}" placeholder="502 5555 5555"></label>
+      <label>Días de gracia<input name="gracia" type="number" min="0" max="30" value="${cobro.gracia}"></label></div>
+      <p class="tenue" style="font-size:13px;margin:0">Durante los días de gracia el miembro ve una ventana de aviso pero sigue entrenando. Al terminar, su plan se pausa hasta que registres el pago.</p>
+      <button class="btn btn-rojo" type="submit">Guardar</button></form>`, d => {
+    $('#f-cobro', d).onsubmit = async e => {
+      e.preventDefault(); const x = datosForm(e.target);
+      try { await db.guardarAjustesCobro({ instrucciones: x.instrucciones.trim(), whatsapp: x.whatsapp.replace(/\D/g, ''), gracia: Number(x.gracia || 5) }); d.close(); aviso('Datos de cobro guardados'); enrutar(); }
+      catch { aviso('No se pudo guardar.', 'error'); }
+    };
+  });
 }
 
 function dialogoInvitar(pre, alInvitar) {
@@ -220,7 +247,7 @@ function activarVideos(v) {
 /* -------------------------------------------------------------- Miembro */
 async function vistaMiembro(v, id, tab = 'plan') {
   const m = await db.miembro(id);
-  const tabs = [['plan', 'Plan'], ['checkins', 'Check-ins'], ['videos', 'Videos'], ['registros', 'Registros'], ['progreso', 'Progreso']]
+  const tabs = [['plan', 'Plan'], ['checkins', 'Check-ins'], ['videos', 'Videos'], ['registros', 'Registros'], ['progreso', 'Progreso'], ['pagos', 'Pagos']]
     .filter(([k]) => k !== 'videos' || puedeVideos(m.plan));
   v.innerHTML = `
     <a class="link" href="#/miembros">← Miembros</a>
@@ -237,8 +264,58 @@ async function vistaMiembro(v, id, tab = 'plan') {
   $('#plan').onchange = async e => { await db.actualizarMiembro(id, { plan: e.target.value }); aviso('Plan actualizado'); };
   $('#estado').onchange = async e => { await db.actualizarMiembro(id, { estado: e.target.value }); aviso('Estado actualizado'); };
   const p = $('#panel'); cargando(p);
-  const paneles = { plan: panelPlan, checkins: panelCheckins, videos: panelVideos, registros: panelRegistros, progreso: panelProgreso };
+  const paneles = { plan: panelPlan, checkins: panelCheckins, videos: panelVideos, registros: panelRegistros, progreso: panelProgreso, pagos: panelPagos };
   await (paneles[tab] || panelPlan)(p, m);
+}
+
+async function panelPagos(p, m) {
+  const [pagos, cobro] = await Promise.all([db.pagos(m.id), db.ajustesCobro()]);
+  const e = estadoPago(m, cobro.gracia);
+  const f = iso => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('es-GT', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  const precios = PRECIOS[m.plan] || { 1: '' };
+  const texto = { sin: 'Aún no registras pagos. Sin fecha de vencimiento, la app no le muestra avisos.', al_dia: `Al día. Le quedan ${e.dias} días.`,
+    por_vencer: e.dias === 0 ? 'Vence hoy. Ya ve un aviso en su inicio.' : `Vence en ${e.dias} días. Ya ve un aviso en su inicio.`,
+    gracia: `Vencido hace ${e.vencido} día${e.vencido === 1 ? '' : 's'}. Ve la ventana de pago al abrir la app. Su acceso se pausa en ${e.quedan} día${e.quedan === 1 ? '' : 's'}.`,
+    bloqueado: `Vencido hace ${e.vencido} días. Su acceso está en pausa: ve la pantalla de pago y no puede abrir su plan.` }[e.tipo];
+  p.innerHTML = `
+    <div class="tarjeta" style="max-width:640px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div><p class="eyebrow">Pagado hasta</p><p class="h2" style="margin:4px 0 0">${f(m.pagado_hasta)}</p></div>
+        <div class="chips">${chipPago(e) || '<span class="chip chip-ok">Al día</span>'}</div></div>
+      <p class="suave" style="margin:0">${texto}</p>
+    </div>
+    <form class="tarjeta form" id="f-pago" style="max-width:640px">
+      <div><p class="eyebrow">Plan ${esc(m.plan || '')}</p><h2 class="h2">Registrar pago</h2></div>
+      <div class="grid3">
+        <label>Meses que cubre<select name="meses">${[1, 3, 6].map(n => `<option value="${n}">${n} ${n === 1 ? 'mes' : 'meses'}</option>`).join('')}</select></label>
+        <label>Monto (Q)<input name="monto" type="number" min="0" step="0.01" value="${precios[1] ?? ''}"></label>
+        <label>Método<select name="metodo">${['Transferencia', 'Depósito', 'Efectivo', 'Tarjeta', 'Otro'].map(x => `<option>${x}</option>`).join('')}</select></label>
+      </div>
+      <label>Nota (opcional)<input name="nota" placeholder="Número de comprobante, banco…"></label>
+      <p class="tenue" style="font-size:13px;margin:0" id="cubre"></p>
+      <button class="btn btn-rojo" type="submit">Registrar pago</button>
+    </form>
+    <details class="tarjeta" style="max-width:640px"><summary class="link" style="cursor:pointer">Corregir la fecha manualmente</summary>
+      <form class="form" id="f-fecha" style="margin-top:14px"><label>Pagado hasta<input type="date" name="pagado_hasta" value="${m.pagado_hasta || ''}"></label>
+      <div class="grid2"><button class="btn btn-linea" type="submit">Guardar fecha</button><button class="btn btn-linea" type="button" id="sin-control">Quitar control de pago</button></div></form></details>
+    <div><p class="eyebrow" style="margin-bottom:10px">Historial</p>
+      ${pagos.length ? `<div class="lista">${pagos.map(x => `<div class="fila"><div class="fila-cuerpo"><p class="fila-t">Q${Number(x.monto || 0).toLocaleString('es-GT')} · ${x.meses} ${x.meses === 1 ? 'mes' : 'meses'}</p>
+        <p class="fila-s">${f(x.fecha)} · ${esc(x.metodo || '')}${x.nota ? ' · ' + esc(x.nota) : ''} · cubre hasta ${f(x.cubre_hasta)}</p></div></div>`).join('')}</div>` : '<p class="tenue">Sin pagos registrados.</p>'}
+    </div>`;
+  const fp = $('#f-pago', p);
+  const calc = () => {
+    const meses = Number(fp.meses.value); if (precios[meses] !== undefined) fp.monto.value = precios[meses]; else if (precios[1]) fp.monto.value = precios[1] * meses;
+    const hoy = hoyISO(); const base = new Date(((m.pagado_hasta && m.pagado_hasta > hoy) ? m.pagado_hasta : hoy) + 'T12:00:00');
+    base.setMonth(base.getMonth() + meses); $('#cubre', p).textContent = 'Quedará pagado hasta el ' + base.toLocaleDateString('es-GT', { day: 'numeric', month: 'long', year: 'numeric' }) + '.';
+  };
+  fp.meses.onchange = calc; calc();
+  fp.onsubmit = async ev => {
+    ev.preventDefault(); const x = datosForm(ev.target); const btn = ev.target.querySelector('[type=submit]'); btn.disabled = true;
+    try { const hasta = await db.registrarPago(m.id, { meses: Number(x.meses), monto: x.monto ? Number(x.monto) : null, metodo: x.metodo, nota: x.nota }); m.pagado_hasta = hasta; aviso('Pago registrado'); panelPagos(p, m); }
+    catch { btn.disabled = false; aviso('No se pudo registrar el pago.', 'error'); }
+  };
+  $('#f-fecha', p).onsubmit = async ev => { ev.preventDefault(); const v = datosForm(ev.target).pagado_hasta || null; await db.actualizarMiembro(m.id, { pagado_hasta: v }); m.pagado_hasta = v; aviso('Fecha actualizada'); panelPagos(p, m); };
+  $('#sin-control', p).onclick = async () => { await db.actualizarMiembro(m.id, { pagado_hasta: null }); m.pagado_hasta = null; aviso('Control de pago desactivado para este miembro'); panelPagos(p, m); };
 }
 
 async function panelPlan(p, m, semSel) {
