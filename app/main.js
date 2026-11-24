@@ -1,8 +1,10 @@
-import { crearDatos, DIAS, semanaActual, diaSemanaHoy, diasDesde, puedeVideos, checkinCada, estadoPago, hoyISO } from '/shared/data.js';
+import { crearDatos, DIAS, semanaActual, diaSemanaHoy, diasDesde, estadoPago, hoyISO } from '/shared/data.js';
+import { permisos, puede, planMinimo, NOMBRES } from '/shared/permisos.js';
 import { $, $$, esc, fecha, aviso, cargando, vacio, datosForm, dialogo, registrarSW } from '/shared/ui.js';
 import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
 import { PASOS, htmlPaso, leerPaso, alertas, requiereRevisionMedica } from '/shared/anamnesis.js';
 import { htmlCaptura, leerCaptura, formatear, cambio, CATEGORIAS, zonasMiembro, zonaDe, ZONAS } from '/shared/tests.js';
+import { montarMapa } from '/shared/composicion.js';
 import { esDeCarga, claveEjercicio, htmlSeries, leerSeries, sugerencia, texto as textoSeries, resumen as resumenSeries, porEjercicio } from '/shared/cargas.js';
 
 const raiz = $('#raiz');
@@ -16,8 +18,25 @@ const ICONOS = {
   checkin: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>',
   tecnica: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3z"/></svg>',
   progreso: '<svg viewBox="0 0 24 24"><path d="M5 19V11M12 19V5M19 19v-6"/></svg>',
-  play: '<svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>'
+  play: '<svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>',
+  candado: '<svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="3"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>',
+  llamada: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3z"/><circle cx="9.5" cy="12" r="2"/></svg>'
 };
+
+/* ------------------------------------------------- Permisos y candados */
+function linkMejorar(plan) {
+  if (!cobro?.whatsapp) return '/#planes';
+  return `https://wa.me/${cobro.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola Vic, soy ${yo.nombre || yo.correo}. Quiero pasar al plan ${plan}.`)}`;
+}
+const textoCandado = f => `Disponible en ${planMinimo(f)} · <a href="${linkMejorar(planMinimo(f))}" target="_blank" rel="noopener">Mejorar plan</a>`;
+function candado(f, detalle = '') {
+  return `<div class="candado"><span class="candado-ico">${ICONOS.candado}</span><div><b>${NOMBRES[f] || ''}</b>
+    ${detalle ? `<p>${detalle}</p>` : ''}<span>${textoCandado(f)}</span></div></div>`;
+}
+function linkVideollamada() {
+  if (!cobro?.whatsapp) return null;
+  return `https://wa.me/${cobro.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola Vic, soy ${yo.nombre || yo.correo}. Quiero agendar nuestra videollamada de seguimiento.`)}`;
+}
 
 init();
 
@@ -222,6 +241,9 @@ function pintarMarco() {
       ${yo.pagado_hasta ? `<div class="burbuja"><small>Mensualidad</small>${pago.tipo === 'gracia' ? 'Vencida el ' : 'Pagada hasta el '}${fechaLarga(yo.pagado_hasta)}</div>` : ''}
       ${['gracia', 'por_vencer'].includes(pago.tipo) ? bloqueComoPagar() : ''}
       ${yo.objetivo ? `<div class="burbuja"><small>Mi objetivo</small>${esc(yo.objetivo)}</div>` : ''}
+      <div class="incluye"><small>Tu plan incluye</small>
+        <p>✓ Check-in ${permisos(yo.plan).checkin.nombre} · ✓ Progresión de cargas · ✓ Mapa corporal · ✓ Tests</p>
+        ${['tecnicaVideo', 'videollamada'].map(f => puede(yo.plan, f) ? `<p>✓ ${NOMBRES[f]}</p>` : `<p class="falta">${ICONOS.candado} ${NOMBRES[f]} · ${textoCandado(f)}</p>`).join('')}</div>
       <button class="btn btn-linea btn-full btn-pill" id="salir">Cerrar sesión</button></div>`, d => {
     $('#salir', d).onclick = async () => { d.close(); await db.salir(); location.hash = ''; arrancar(); };
   });
@@ -295,7 +317,8 @@ async function vistaHoy(v) {
   const siguiente = deHoy || sesiones.find(s => s.dia > hoyDia && !s.registros?.length) || sesiones.find(s => !s.registros?.length);
   const ultimoCheckin = checkins[0]?.created_at;
   const diasCheck = diasDesde(ultimoCheckin);
-  const tocaCheckin = !ultimoCheckin || diasCheck >= checkinCada(yo.plan) || (yo.plan !== 'Base' && hoyDia === 7 && diasCheck >= 1);
+  const cadaCheckin = permisos(yo.plan).checkin.cadaDias;
+  const tocaCheckin = !ultimoCheckin || diasCheck >= cadaCheckin || (cadaCheckin === 7 && hoyDia === 7 && diasCheck >= 1);
   const rpes = hechas.map(s => s.registros[0].rpe).filter(Boolean);
   const rpeProm = rpes.length ? (rpes.reduce((a, b) => a + b, 0) / rpes.length).toFixed(1) : '–';
   const racha = rachaSemanas(regs);
@@ -334,9 +357,14 @@ async function vistaHoy(v) {
     <div class="rapidos">
       <a class="rapido" href="${siguiente ? '#/sesion/' + siguiente.id : '#/plan'}"><span class="ico rojo">${ICONOS.play}</span><span>Empezar sesión<small>${siguiente ? esc(siguiente.titulo) : 'Ver plan'}</small></span></a>
       <a class="rapido" href="#/checkin"><span class="ico ${tocaCheckin ? 'rojo' : 'hueso'}">${ICONOS.checkin}</span><span>Check-in<small>${tocaCheckin ? 'Te toca hoy' : 'Al día'}</small></span></a>
-      <a class="rapido" href="#/tecnica"><span class="ico hueso">${ICONOS.tecnica}</span><span>Subir técnica<small>${puedeVideos(yo.plan) ? 'Video para revisar' : 'Limitless y Élite'}</small></span></a>
+      ${puede(yo.plan, 'tecnicaVideo')
+        ? `<a class="rapido" href="#/tecnica"><span class="ico hueso">${ICONOS.tecnica}</span><span>Subir técnica<small>Video para revisar</small></span></a>`
+        : `<a class="rapido bloqueado" href="#/tecnica"><span class="ico">${ICONOS.candado}</span><span>Subir técnica<small>Disponible en ${planMinimo('tecnicaVideo')} · Mejorar plan</small></span></a>`}
       <a class="rapido" href="#/progreso"><span class="ico hueso">${ICONOS.progreso}</span><span>Mi progreso<small>${regs.filter(r => r.completada).length} sesiones</small></span></a>
-    </div>`;
+    </div>
+    ${puede(yo.plan, 'videollamada')
+      ? (linkVideollamada() ? `<a class="rapido ancho" href="${linkVideollamada()}" target="_blank" rel="noopener"><span class="ico rojo">${ICONOS.llamada}</span><span>Videollamada con Vic<small>Cada ${permisos(yo.plan).videollamada.cadaDias} días · toca para agendar</small></span></a>` : '')
+      : `<div class="rapido ancho bloqueado"><span class="ico">${ICONOS.candado}</span><span>Videollamada con Vic<small>${textoCandado('videollamada')}</small></span></div>`}`;
 }
 
 function rachaSemanas(regs) {
@@ -487,7 +515,7 @@ async function vistaCheckin(v) {
   if (bloque) { const ss = await db.sesionesSemana(bloque.id, semanaActual(bloque)); cumplidas = ss.filter(s => s.registros?.[0]?.completada).length; }
   const escala = nombre => `<div class="escala redonda">${[1, 2, 3, 4, 5].map(i => `<label><input type="radio" name="${nombre}" value="${i}" required><span>${i}</span></label>`).join('')}</div>`;
   v.innerHTML = `
-    <div class="top-bar"><h1>Check-in ${yo.plan === 'Base' ? 'mensual' : 'semanal'}</h1></div>
+    <div class="top-bar"><h1>Check-in ${permisos(yo.plan).checkin.nombre}</h1></div>
     <form id="f-checkin" class="card form">
       <p class="suave" style="margin:0">Tres minutos. Con esto ajusto tu plan.</p>
       <div class="grid2">
@@ -518,11 +546,10 @@ async function vistaCheckin(v) {
 
 /* ------------------------------------------------------------ Técnica */
 async function vistaTecnica(v) {
-  if (!puedeVideos(yo.plan)) {
+  if (!puede(yo.plan, 'tecnicaVideo')) {
     v.innerHTML = `<div class="top-bar"><h1>Revisión de técnica</h1></div>
-      <div class="portada" style="background-image:url('${FOTOS.fuerza}');height:200px"><div class="portada-in"><div><span class="tag">Limitless y Élite</span><h2>Graba. Corrijo. Mejoras.</h2></div></div></div>
-      <div class="upsell"><p class="h3">Disponible en Limitless y Élite</p>
-      <p class="suave" style="margin:0">Subes un video corto de tus series clave y te devuelvo correcciones concretas, ejercicio por ejercicio. Escríbele a Vic si quieres cambiar de plan.</p></div>`;
+      <div class="portada" style="background-image:url('${FOTOS.fuerza}');height:200px"><div class="portada-in"><div><span class="tag">${ICONOS.candado} ${planMinimo('tecnicaVideo')}</span><h2>Graba. Corrijo. Mejoras.</h2></div></div></div>
+      ${candado('tecnicaVideo', 'Subes un video corto de tus series clave y Vic te devuelve correcciones concretas, ejercicio por ejercicio.')}`;
     return;
   }
   const [videos, sesiones] = await Promise.all([db.videos(yo.id), bloque ? db.sesionesSemana(bloque.id, semanaActual(bloque)) : []]);
@@ -594,7 +621,7 @@ function anillos(datos) {
 }
 
 async function vistaProgreso(v) {
-  const [regs, checkins, videos] = await Promise.all([db.registros(yo.id), db.checkins(yo.id), puedeVideos(yo.plan) ? db.videos(yo.id) : []]);
+  const [regs, checkins, videos] = await Promise.all([db.registros(yo.id), db.checkins(yo.id), puede(yo.plan, 'tecnicaVideo') ? db.videos(yo.id) : []]);
   const completadas = regs.filter(r => r.completada).length;
   const adh = [];
   let semanaSes = [];
@@ -618,7 +645,7 @@ async function vistaProgreso(v) {
   const rings = [
     { nombre: 'Sesiones', valor: `${hechasSem}/${semanaSes.length}`, pct: pctSes, color: '#E10600' },
     { nombre: 'Check-in', valor: checkSem ? 'Hecho' : 'Pendiente', pct: checkSem, color: '#F2EFEA' },
-    { nombre: puedeVideos(yo.plan) ? 'Técnica' : 'Constancia', valor: puedeVideos(yo.plan) ? `${vidsSem} video${vidsSem === 1 ? '' : 's'}` : prom + '%', pct: puedeVideos(yo.plan) ? Math.min(vidsSem * 100, 100) : prom, color: '#8F8C88' }
+    { nombre: puede(yo.plan, 'tecnicaVideo') ? 'Técnica' : 'Constancia', valor: puede(yo.plan, 'tecnicaVideo') ? `${vidsSem} video${vidsSem === 1 ? '' : 's'}` : prom + '%', pct: puede(yo.plan, 'tecnicaVideo') ? Math.min(vidsSem * 100, 100) : prom, color: '#8F8C88' }
   ];
 
   v.innerHTML = `
@@ -645,6 +672,11 @@ async function vistaProgreso(v) {
       ${rpes.length ? `<div class="mini-barras">${rpes.map(r => `<i class="${r.rpe >= 8 ? 'on' : ''}" style="height:${Math.round(8 + (r.rpe - 1) * 5.3)}px" title="RPE ${r.rpe}"></i>`).join('')}</div>
         <p class="tenue" style="font-size:12px;margin:12px 0 0">En hueso, las sesiones de RPE 8 o más. Si se juntan muchas, toca semana de descarga.</p>` : vacio('Sin registros de esfuerzo aún')}
     </section>`;
+  const meds = puede(yo.plan, 'composicion') ? await db.composicion(yo.id).catch(() => []) : [];
+  if (meds.length) {
+    v.insertAdjacentHTML('beforeend', `<div class="card mapa-card"><p class="card-t">Mapa corporal <small>${meds.length} medici${meds.length === 1 ? 'ón' : 'ones'} InBody</small></p><div id="mapa"></div></div>`);
+    montarMapa($('#mapa', v), meds);
+  }
   const [tests, resTest] = await Promise.all([db.tests().catch(() => []), db.resultadosTest(yo.id).catch(() => [])]);
   const porTest = tests.map(t => ({ t, rs: resTest.filter(r => r.test_id === t.id) })).filter(x => x.rs.length);
   const grupos = porEjercicio(await db.cargas(yo.id).catch(() => [])).filter(g => g.registros.some(r => r.top_kg));

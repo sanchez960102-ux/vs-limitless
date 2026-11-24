@@ -1,7 +1,9 @@
-import { crearDatos, DIAS, PLANES, TIPOS, semanaActual, diaSemanaHoy, lunesDe, puedeVideos, estadoPago, PRECIOS, hoyISO } from '/shared/data.js';
+import { crearDatos, DIAS, PLANES, TIPOS, semanaActual, diaSemanaHoy, lunesDe, estadoPago, PRECIOS, hoyISO } from '/shared/data.js';
 import { $, $$, esc, fecha, hace, aviso, cargando, vacio, datosForm, dialogo, barraProgreso, lineaSVG, registrarSW } from '/shared/ui.js';
+import { puede, permisos } from '/shared/permisos.js';
 import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
 import { PASOS, alertas, requiereRevisionMedica, htmlResumen, edad } from '/shared/anamnesis.js';
+import { SEGMENTOS, GENERALES, montarMapa, desbalances } from '/shared/composicion.js';
 import { porEjercicio, texto as textoSeries } from '/shared/cargas.js';
 import { CATEGORIAS, UNIDADES, htmlCaptura, leerCaptura, formatear, cambio, htmlDerivados, zonasMiembro, ZONAS } from '/shared/tests.js';
 
@@ -258,8 +260,8 @@ function activarVideos(v) {
 /* -------------------------------------------------------------- Miembro */
 async function vistaMiembro(v, id, tab = 'plan') {
   const m = await db.miembro(id);
-  const tabs = [['plan', 'Plan'], ['anamnesis', 'Anamnesis'], ['cargas', 'Cargas'], ['tests', 'Tests'], ['checkins', 'Check-ins'], ['videos', 'Videos'], ['registros', 'Registros'], ['progreso', 'Progreso'], ['pagos', 'Pagos']]
-    .filter(([k]) => k !== 'videos' || puedeVideos(m.plan));
+  const tabs = [['plan', 'Plan'], ['anamnesis', 'Anamnesis'], ['composicion', 'Composición'], ['cargas', 'Cargas'], ['tests', 'Tests'], ['checkins', 'Check-ins'], ['videos', 'Videos'], ['registros', 'Registros'], ['progreso', 'Progreso'], ['pagos', 'Pagos']]
+    .filter(([k]) => k !== 'videos' || puede(m.plan, 'tecnicaVideo'));
   v.innerHTML = `
     <a class="link" href="#/miembros">← Miembros</a>
     <div class="ficha">
@@ -292,8 +294,49 @@ async function vistaMiembro(v, id, tab = 'plan') {
     };
   });
   const p = $('#panel'); cargando(p);
-  const paneles = { plan: panelPlan, checkins: panelCheckins, videos: panelVideos, registros: panelRegistros, progreso: panelProgreso, pagos: panelPagos, anamnesis: panelAnamnesis, tests: panelTests, cargas: panelCargas };
+  const paneles = { plan: panelPlan, checkins: panelCheckins, videos: panelVideos, registros: panelRegistros, progreso: panelProgreso, pagos: panelPagos, anamnesis: panelAnamnesis, tests: panelTests, cargas: panelCargas, composicion: panelComposicion };
   await (paneles[tab] || panelPlan)(p, m);
+}
+
+/* -------------------------------------------------------- Composición */
+async function panelComposicion(p, m, editar = null) {
+  const meds = await db.composicion(m.id);
+  const f = iso => new Date(iso + 'T12:00:00').toLocaleDateString('es-GT', { day: 'numeric', month: 'short', year: 'numeric' });
+  const e = editar || {};
+  const num = (k, step = '0.1') => `<input name="${k}" type="number" step="${step}" min="0" inputmode="decimal" value="${e[k] ?? ''}">`;
+  p.innerHTML = `
+    <div class="comp-grid">
+      <form class="tarjeta form" id="f-comp">
+        <div><p class="eyebrow">InBody</p><h2 class="h2" style="margin:4px 0 0">${e.id ? 'Editar medición' : 'Nueva medición'}</h2></div>
+        <div class="grid3"><label>Fecha<input type="date" name="fecha" required value="${e.fecha || new Date().toLocaleDateString('en-CA')}"></label>
+          ${GENERALES.map(g => `<label>${g.nombre} (${g.u})${num(g.k)}</label>`).join('')}</div>
+        <table class="tabla-mini comp-seg"><thead><tr><th>Segmento</th><th>Masa magra (kg)</th><th>Grasa (kg)</th></tr></thead>
+          <tbody>${SEGMENTOS.map(s => `<tr><td>${s.nombre}</td><td>${num('magra_' + s.k, '0.01')}</td><td>${num('grasa_' + s.k, '0.01')}</td></tr>`).join('')}</tbody></table>
+        <label>Nota (opcional)<input name="nota" value="${esc(e.nota || '')}" placeholder="En ayunas, 7:00 a. m."></label>
+        <p class="tenue" style="font-size:12px;margin:0">Copia los valores del reporte InBody: el análisis segmental de masa magra y de grasa viene en la segunda sección del reporte.</p>
+        <div class="grid2"><button class="btn btn-rojo" type="submit">${e.id ? 'Guardar cambios' : 'Guardar medición'}</button>${e.id ? '<button class="btn btn-linea" type="button" id="cancelar">Cancelar</button>' : ''}</div>
+      </form>
+      <div class="tarjeta">${meds.length ? `<p class="eyebrow" style="margin-bottom:12px">Lo que ve ${esc((m.nombre || '').split(' ')[0] || 'el miembro')}</p><div id="mapa-coach"></div>` : vacio('Sin mediciones', 'Cuando guardes la primera, el miembro verá su mapa corporal en Progreso.')}</div>
+    </div>
+    ${meds.length ? `<div class="tarjeta"><p class="eyebrow" style="margin-bottom:10px">Historial</p><table class="tabla-mini"><thead><tr><th>Fecha</th><th>Peso</th><th>% grasa</th><th>Músculo</th><th>Visceral</th><th>Desbalance</th><th></th></tr></thead>
+      <tbody>${[...meds].reverse().map(x => `<tr><td>${f(x.fecha)}</td><td>${x.peso ?? '—'} kg</td><td>${x.pct_grasa ?? '—'}%</td><td>${x.musculo_esqueletico ?? '—'} kg</td><td>${x.grasa_visceral ?? '—'}</td>
+        <td>${desbalances(x).map(d => `${d.parte} ${d.pct}%`).join(', ') || '—'}</td>
+        <td style="white-space:nowrap"><button class="link" data-editar="${x.id}" type="button">Editar</button> · <button class="link link-peligro" data-borrar="${x.id}" type="button">Borrar</button></td></tr>`).join('')}</tbody></table></div>` : ''}`;
+  if (meds.length) montarMapa($('#mapa-coach', p), meds);
+  const fc = $('#f-comp', p);
+  fc.onsubmit = async ev => {
+    ev.preventDefault(); const x = datosForm(ev.target); const fila = { miembro_id: m.id, fecha: x.fecha, nota: x.nota || null };
+    [...GENERALES.map(g => g.k), ...SEGMENTOS.flatMap(s => ['magra_' + s.k, 'grasa_' + s.k])].forEach(k => { fila[k] = x[k] === '' || x[k] === undefined ? null : Number(x[k]); });
+    if (e.id) fila.id = e.id;
+    try { await db.guardarComposicion(fila); aviso(e.id ? 'Medición actualizada' : 'Medición guardada'); panelComposicion(p, m); }
+    catch { aviso('No se pudo guardar la medición.', 'error'); }
+  };
+  const can = $('#cancelar', p); if (can) can.onclick = () => panelComposicion(p, m);
+  $$('[data-editar]', p).forEach(b => b.onclick = () => { panelComposicion(p, m, meds.find(x => x.id === b.dataset.editar)); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  $$('[data-borrar]', p).forEach(b => b.onclick = () => dialogo(`<div class="menu-hoja"><p class="eyebrow">Composición</p><h2 class="h2">¿Borrar esta medición?</h2>
+      <p class="suave" style="margin:0">Desaparece del historial y del mapa del miembro.</p><button class="btn btn-rojo btn-full" id="si">Borrar</button></div>`, d => {
+    $('#si', d).onclick = async () => { await db.borrarComposicion(b.dataset.borrar); d.close(); aviso('Medición borrada'); panelComposicion(p, m); };
+  }));
 }
 
 /* -------------------------------------------------------------- Cargas */

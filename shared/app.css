@@ -124,3 +124,38 @@ textarea{resize:vertical}
 @media (max-width:600px){.grid2,.grid3{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .acceso-alt{align-self:center;margin-top:4px;font-size:14px}
+
+/* ===== Mapa corporal ===== */
+.mapa-linea{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.mapa-linea::-webkit-scrollbar{display:none}
+.mapa-linea button{flex-shrink:0;padding:8px 13px;border-radius:30px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);color:#c9c5bf;font:500 13px var(--texto,inherit);cursor:pointer}
+.mapa-linea button.on{background:#F2EFEA;color:#111;border-color:#F2EFEA;font-weight:600}
+.mapa-cuerpo{display:grid;grid-template-columns:minmax(120px,42%) 1fr;gap:16px;align-items:center;margin-top:14px}
+.silueta{width:100%;max-height:360px}
+.silueta .cabeza{fill:rgba(255,255,255,.10)}
+.silueta .seg{stroke:rgba(255,255,255,.22);stroke-width:1.5;cursor:pointer;transition:fill .25s,stroke .2s;outline:none}
+.silueta .seg.sin{fill:rgba(242,239,234,.22)}
+.silueta .seg.igual{fill:rgba(160,160,168,.35)}
+.silueta .seg.mejoro{fill:rgba(76,201,110,.55)}
+.silueta .seg.bajo{fill:rgba(255,110,100,.42)}
+.silueta .seg.sel,.silueta .seg:focus-visible{stroke:#fff;stroke-width:3}
+.silueta .lado{fill:rgba(255,255,255,.4);font:600 11px Inter,sans-serif;text-anchor:middle}
+.mapa-info{display:flex;flex-direction:column;gap:12px;min-width:0}
+.seg-det{padding:14px;border-radius:16px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.12)}
+.seg-det.mejoro{border-color:rgba(76,201,110,.55)}.seg-det.bajo{border-color:rgba(255,110,100,.5)}
+.seg-n{margin:0;font:600 15px Inter,sans-serif}
+.seg-e{font-size:12px;color:#9a968f}
+.seg-det dl,.cg{margin:10px 0 0;display:flex;flex-direction:column;gap:8px}
+.cg-fila{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.cg-fila dt{font-size:13px;color:#b5b1ac}
+.cg-fila dd{margin:0;display:flex;gap:8px;align-items:baseline;white-space:nowrap}
+.cg-fila dd b{font-weight:600}
+.cg-fila dd span{font-size:12px;color:#9a968f}
+.cg-fila dd span.sube{color:#7ee787}.cg-fila dd span.baja{color:#ff8a80}
+.cg{padding-top:14px;margin-top:14px;border-top:1px solid rgba(255,255,255,.08)}
+.leyenda{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:#b5b1ac}
+.leyenda i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.leyenda i.mejoro{background:rgba(76,201,110,.8)}.leyenda i.igual{background:rgba(160,160,168,.7)}.leyenda i.bajo{background:rgba(255,110,100,.7)}
+.desbalance{display:flex;flex-direction:column;gap:3px;margin-top:12px;padding:12px 14px;border-radius:14px;background:rgba(255,196,0,.12);border:1px solid rgba(255,196,0,.4);font-size:13px}
+.desbalance b{font-weight:600}
+@media (max-width:420px){.mapa-cuerpo{grid-template-columns:40% 1fr;gap:12px}}

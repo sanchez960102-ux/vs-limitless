@@ -20,8 +20,6 @@ export function lunesDe(fecha = new Date()) {
   d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - dia + 1); return d;
 }
 export function diasDesde(iso) { return iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : null; }
-export function puedeVideos(plan) { return plan === 'Limitless' || plan === 'Élite'; }
-export function checkinCada(plan) { return plan === 'Base' ? 30 : 7; }
 
 export const PRECIOS = { Base: { 1: 300 }, Limitless: { 1: 450, 3: 1250 }, 'Élite': { 1: 950, 3: 2650 } };
 
@@ -169,6 +167,9 @@ async function crearSupabase() {
         { clave: 'cobro_whatsapp', valor: a.whatsapp || '' },
         { clave: 'cobro_gracia', valor: String(a.gracia ?? 5) }]));
     },
+    async composicion(mid) { return ok(await sb.from('composicion').select('*').eq('miembro_id', mid).order('fecha').order('created_at')); },
+    async guardarComposicion(c) { return ok(await sb.from('composicion').upsert(c).select().single()); },
+    async borrarComposicion(id) { ok(await sb.from('composicion').delete().eq('id', id)); },
     async cargas(mid) { return ok(await sb.from('cargas').select('*').eq('miembro_id', mid).order('fecha').order('created_at')); },
     async guardarCarga(c) { return ok(await sb.from('cargas').upsert(c, { onConflict: 'item_id' }).select().single()); },
     async borrarCargasDeItems(ids) { if (ids.length) ok(await sb.from('cargas').delete().in('item_id', ids)); },
@@ -234,6 +235,16 @@ function crearDemo() {
       { id: 't-flexiones', nombre: 'Flexiones máximas', categoria: 'fuerza', unidad: 'reps', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Cuerpo en línea recta, pecho hasta un puño del suelo. Máximas repeticiones continuas.', orden: 15 },
       { id: 't-plancha', nombre: 'Plancha frontal máxima', categoria: 'funcional', unidad: 'tiempo', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Apoyo en antebrazos, cuerpo alineado. Detén el tiempo cuando la cadera caiga o se eleve.', orden: 20 },
       { id: 't-tobillo', nombre: 'Dorsiflexión de tobillo (rodilla a la pared)', categoria: 'movilidad', unidad: 'cm', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Lleva la rodilla a la pared sin despegar el talón y mide la distancia máxima del dedo gordo a la pared.', orden: 31 }],
+    composicion: [
+      { id: 'cp1', miembro_id: 'ana', fecha: iso(new Date(Date.now() - 56 * 86400000)), peso: 66.8, pct_grasa: 31.2, musculo_esqueletico: 24.6, grasa_visceral: 7, agua: 33.4,
+        magra_brazo_der: 2.18, grasa_brazo_der: 1.62, magra_brazo_izq: 2.12, grasa_brazo_izq: 1.66, magra_tronco: 20.1, grasa_tronco: 10.4,
+        magra_pierna_der: 7.42, grasa_pierna_der: 3.71, magra_pierna_izq: 7.02, grasa_pierna_izq: 3.80, created_at: hace(56) },
+      { id: 'cp2', miembro_id: 'ana', fecha: iso(new Date(Date.now() - 28 * 86400000)), peso: 65.6, pct_grasa: 29.9, musculo_esqueletico: 24.9, grasa_visceral: 6, agua: 33.7,
+        magra_brazo_der: 2.24, grasa_brazo_der: 1.55, magra_brazo_izq: 2.13, grasa_brazo_izq: 1.60, magra_tronco: 20.3, grasa_tronco: 9.8,
+        magra_pierna_der: 7.55, grasa_pierna_der: 3.60, magra_pierna_izq: 7.10, grasa_pierna_izq: 3.66, created_at: hace(28) },
+      { id: 'cp3', miembro_id: 'ana', fecha: iso(new Date(Date.now() - 3 * 86400000)), peso: 64.2, pct_grasa: 28.1, musculo_esqueletico: 25.3, grasa_visceral: 6, agua: 34.1,
+        magra_brazo_der: 2.31, grasa_brazo_der: 1.47, magra_brazo_izq: 2.22, grasa_brazo_izq: 1.58, magra_tronco: 20.6, grasa_tronco: 9.1,
+        magra_pierna_der: 7.71, grasa_pierna_der: 3.48, magra_pierna_izq: 7.22, grasa_pierna_izq: 3.52, created_at: hace(3) }],
     cargas: (() => {
       const c = (ej, dias, series) => { const v = series.map(([kg, reps]) => ({ kg, reps })); const top = Math.max(...v.map(s => s.kg));
         return { id: uuid(), miembro_id: 'ana', item_id: null, ejercicio: ej, clave: ej.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), fecha: iso(new Date(Date.now() - dias * 86400000)), series: v, top_kg: top,
@@ -292,6 +303,9 @@ function crearDemo() {
 
   // ?demo&anamnesis muestra el cuestionario inicial como lo vería un miembro nuevo
   if (new URLSearchParams(location.search).has('anamnesis')) db.anamnesis = [];
+  // ?demo&plan=Base (o Élite) muestra la app con los permisos de ese plan
+  const planDemo = new URLSearchParams(location.search).get('plan');
+  if (planDemo && ['Base', 'Limitless', 'Élite'].includes(planDemo)) db.perfiles.find(p => p.id === 'ana').plan = planDemo;
   let yo = null;
   const conHijos = s => ({ ...s, items: db.items.filter(i => i.sesion_id === s.id).sort((a, b) => a.orden - b.orden), registros: db.registros.filter(r => r.sesion_id === s.id) });
   const espera = v => new Promise(r => setTimeout(() => r(v), 60));
@@ -367,6 +381,9 @@ function crearDemo() {
     async resumenMiembro(m) { return resumen(api, m); },
     async ajustesCobro() { return espera({ ...db.cobro }); },
     async guardarAjustesCobro(a) { db.cobro = { ...a, gracia: Number(a.gracia) }; return espera(); },
+    async composicion(mid) { return espera(db.composicion.filter(c => c.miembro_id === mid).sort((a, b) => a.fecha.localeCompare(b.fecha))); },
+    async guardarComposicion(c) { let x = c.id && db.composicion.find(y => y.id === c.id); if (x) Object.assign(x, c); else { x = { id: uuid(), created_at: new Date().toISOString(), ...c }; db.composicion.push(x); } return espera(x); },
+    async borrarComposicion(id) { db.composicion = db.composicion.filter(c => c.id !== id); return espera(); },
     async cargas(mid) { return espera(db.cargas.filter(c => c.miembro_id === mid)); },
     async guardarCarga(c) { let x = c.item_id && db.cargas.find(y => y.item_id === c.item_id); if (x) Object.assign(x, c); else { x = { id: uuid(), created_at: new Date().toISOString(), ...c }; db.cargas.push(x); } return espera(x); },
     async borrarCargasDeItems(ids) { db.cargas = db.cargas.filter(c => !ids.includes(c.item_id)); return espera(); },
