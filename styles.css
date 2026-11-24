@@ -61,7 +61,7 @@ a{color:inherit}
 .hero-txt{display:flex;flex-direction:column;gap:14px}
 .lema{margin:0;font:400 clamp(22px,2.2vw,28px)/1.1 var(--display);text-transform:uppercase;letter-spacing:.02em}
 .marcas{border-bottom:1px solid var(--linea-suave)}
-.marcas-in{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.marcas-in{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
 .marca{display:flex;align-items:center;gap:16px;padding:40px 0}
 .marca+.marca{padding-left:28px;border-left:1px solid var(--linea)}
 .marca-n{font:400 clamp(36px,3.4vw,52px)/1 var(--display);white-space:nowrap}
@@ -242,7 +242,4 @@ details p{color:var(--tinta-suave);margin:16px 0 0;max-width:600px}
 .cv ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 20px}
 .cv ul.cv-chips{display:flex;flex-wrap:wrap;gap:8px}
 .cv-chips li{border:1px solid var(--linea);border-radius:30px;padding:5px 12px;font-size:13px}
-@media (max-width:1000px){.marcas-in{grid-template-columns:repeat(2,minmax(0,1fr))}.marca:nth-child(3){padding-left:0;border-left:0}.marca:nth-child(n+3){border-top:1px solid var(--linea)}}
 @media (max-width:600px){.cv>div{grid-template-columns:1fr;gap:6px}.cv ul{grid-template-columns:1fr}}
-@media (max-width:640px){.marca{flex-direction:column;align-items:flex-start;gap:10px;padding:24px 0}.marca:nth-child(odd){padding-left:0;border-left:0}.marca:nth-child(even){padding-left:20px;border-left:1px solid var(--linea)}.marca-l{font-size:11px;letter-spacing:.12em}}
-@media (max-width:640px){.marca:nth-child(2){border-top:0}}
