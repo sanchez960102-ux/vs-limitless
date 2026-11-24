@@ -1,6 +1,7 @@
 import { crearDatos, DIAS, PLANES, TIPOS, semanaActual, diaSemanaHoy, lunesDe, puedeVideos, estadoPago, PRECIOS, hoyISO } from '/shared/data.js';
 import { $, $$, esc, fecha, hace, aviso, cargando, vacio, datosForm, dialogo, barraProgreso, lineaSVG, registrarSW } from '/shared/ui.js';
 import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
+import { PASOS, alertas, requiereRevisionMedica, htmlResumen, edad } from '/shared/anamnesis.js';
 
 const raiz = $('#raiz');
 const URL_APP = location.origin + '/app/';
@@ -86,7 +87,8 @@ function enrutar() {
 
 /* ------------------------------------------------------------ Miembros */
 async function vistaMiembros(v) {
-  const [miembros, cobro] = await Promise.all([db.miembros(), db.ajustesCobro()]);
+  const [miembros, cobro, anams] = await Promise.all([db.miembros(), db.ajustesCobro(), db.anamnesisTodas()]);
+  const anDe = id => anams.find(a => a.miembro_id === id);
   const res = await Promise.all(miembros.map(m => db.resumenMiembro(m)));
   const filas = miembros.map((m, i) => ({ m, r: res[i] }));
   const activos = miembros.filter(m => m.estado === 'activo').length;
@@ -112,6 +114,7 @@ async function vistaMiembros(v) {
         <td class="col-oculta tenue">${hace(r.ultima)}</td>
         <td><div class="chips">
           ${m.estado === 'activo' ? chipPago(estadoPago(m, cobro.gracia)) : ''}
+          ${chipAnamnesis(anDe(m.id))}
           ${m.estado !== 'activo' ? `<span class="chip">${esc(m.estado)}</span>` : ''}
           ${r.sinPlan ? '<span class="chip chip-alerta">Sin plan</span>' : ''}
           ${r.alerta && !r.sinPlan ? `<span class="chip chip-alerta">${r.inactivo} días inactivo</span>` : ''}
@@ -123,6 +126,12 @@ async function vistaMiembros(v) {
   $$('tr[data-id]', v).forEach(tr => tr.onclick = () => { location.hash = '#/miembro/' + tr.dataset.id; });
   $('#invitar').onclick = () => dialogoInvitar({});
   $('#cobro').onclick = () => dialogoCobro(cobro);
+}
+
+function chipAnamnesis(a) {
+  if (!a?.completada) return '<span class="chip chip-ambar">Anamnesis pendiente</span>';
+  if (a.alerta_salud && !a.revisada_at) return '<span class="chip chip-alerta">Revisar salud</span>';
+  return '';
 }
 
 function chipPago(e) {
@@ -247,7 +256,7 @@ function activarVideos(v) {
 /* -------------------------------------------------------------- Miembro */
 async function vistaMiembro(v, id, tab = 'plan') {
   const m = await db.miembro(id);
-  const tabs = [['plan', 'Plan'], ['checkins', 'Check-ins'], ['videos', 'Videos'], ['registros', 'Registros'], ['progreso', 'Progreso'], ['pagos', 'Pagos']]
+  const tabs = [['plan', 'Plan'], ['anamnesis', 'Anamnesis'], ['checkins', 'Check-ins'], ['videos', 'Videos'], ['registros', 'Registros'], ['progreso', 'Progreso'], ['pagos', 'Pagos']]
     .filter(([k]) => k !== 'videos' || puedeVideos(m.plan));
   v.innerHTML = `
     <a class="link" href="#/miembros">← Miembros</a>
@@ -281,8 +290,42 @@ async function vistaMiembro(v, id, tab = 'plan') {
     };
   });
   const p = $('#panel'); cargando(p);
-  const paneles = { plan: panelPlan, checkins: panelCheckins, videos: panelVideos, registros: panelRegistros, progreso: panelProgreso, pagos: panelPagos };
+  const paneles = { plan: panelPlan, checkins: panelCheckins, videos: panelVideos, registros: panelRegistros, progreso: panelProgreso, pagos: panelPagos, anamnesis: panelAnamnesis };
   await (paneles[tab] || panelPlan)(p, m);
+}
+
+async function panelAnamnesis(p, m) {
+  const a = await db.anamnesis(m.id);
+  const f = iso => new Date(iso).toLocaleDateString('es-GT', { day: 'numeric', month: 'long', year: 'numeric' });
+  if (!a?.completada) {
+    p.innerHTML = `<div class="tarjeta" style="max-width:640px;display:flex;flex-direction:column;gap:10px">
+      <p class="eyebrow">Anamnesis pendiente</p>
+      <p class="h3" style="margin:0">${a ? `Va en el paso ${Math.min(a.paso + 1, PASOS.length)} de ${PASOS.length}.` : 'Aún no la empieza.'}</p>
+      <p class="suave" style="margin:0">La app se la pide sola la próxima vez que entre, antes de mostrarle su plan. No necesitas hacer nada.</p></div>`;
+    return;
+  }
+  const d = a.datos || {}, al = alertas(d), medica = requiereRevisionMedica(d);
+  const imc = d.peso && d.estatura ? (Number(d.peso) / (Number(d.estatura) / 100) ** 2).toFixed(1) : null;
+  p.innerHTML = `
+    <div class="tarjeta" style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
+        <div><p class="eyebrow">Completada el ${f(a.completada_at || a.updated_at)}</p>
+          <p class="h3" style="margin:6px 0 0">${[edad(d.nacimiento) !== null && edad(d.nacimiento) + ' años', d.sexo, d.estatura && d.estatura + ' cm', d.peso && d.peso + ' kg', imc && 'IMC ' + imc].filter(Boolean).join(' · ')}</p></div>
+        <div class="chips">${a.revisada_at ? `<span class="chip chip-ok">Revisada el ${f(a.revisada_at)}</span>` : '<span class="chip chip-ambar">Sin revisar</span>'}</div>
+      </div>
+      ${al.length ? `<div class="an-alertas"><p class="eyebrow" style="color:#ff8a80">A tener en cuenta</p><ul>${al.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+        ${medica ? '<p class="an-medica">Por sus respuestas, pide autorización médica antes de subir la intensidad.</p>' : ''}</div>` : '<p class="suave" style="margin:0">Sin alertas de salud.</p>'}
+      <div class="ficha-ctl">${a.revisada_at ? '' : '<button class="btn btn-rojo" id="revisada">Marcar como revisada</button>'}
+        <button class="btn btn-linea" id="actualizar">Pedir que la actualice</button></div>
+    </div>
+    <div class="an-resumen">${htmlResumen(d)}</div>`;
+  const rev = $('#revisada', p);
+  if (rev) rev.onclick = async () => { await db.actualizarAnamnesis(m.id, { revisada_at: new Date().toISOString() }); aviso('Anamnesis revisada'); panelAnamnesis(p, m); };
+  $('#actualizar', p).onclick = () => dialogo(`<div class="menu-hoja"><p class="eyebrow">Anamnesis</p><h2 class="h2">¿Pedir que la actualice?</h2>
+      <p class="suave" style="margin:0">La próxima vez que ${esc((m.nombre || '').split(' ')[0] || 'el miembro')} entre a la app, tendrá que revisar y volver a enviar su anamnesis antes de ver su plan. Sus respuestas actuales aparecerán ya llenas.</p>
+      <button class="btn btn-rojo btn-full" id="si">Pedir actualización</button></div>`, dlg => {
+    $('#si', dlg).onclick = async () => { await db.actualizarAnamnesis(m.id, { completada: false, paso: 0, revisada_at: null }); dlg.close(); aviso('Listo. Se la pedirá al entrar.'); panelAnamnesis(p, m); };
+  });
 }
 
 async function panelPagos(p, m) {

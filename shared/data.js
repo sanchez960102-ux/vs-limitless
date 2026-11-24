@@ -169,6 +169,10 @@ async function crearSupabase() {
         { clave: 'cobro_whatsapp', valor: a.whatsapp || '' },
         { clave: 'cobro_gracia', valor: String(a.gracia ?? 5) }]));
     },
+    async anamnesis(mid) { return ok(await sb.from('anamnesis').select('*').eq('miembro_id', mid).maybeSingle()); },
+    async anamnesisTodas() { return ok(await sb.from('anamnesis').select('miembro_id, completada, alerta_salud, revisada_at, paso')); },
+    async guardarAnamnesis(mid, cambios) { return ok(await sb.from('anamnesis').upsert({ miembro_id: mid, ...cambios, updated_at: new Date().toISOString() }).select().single()); },
+    async actualizarAnamnesis(mid, cambios) { return ok(await sb.from('anamnesis').update(cambios).eq('miembro_id', mid).select().maybeSingle()); },
     async eliminarMiembro(id) { ok(await sb.rpc('eliminar_miembro', { p_miembro: id })); },
     async pagos(miembroId) { return ok(await sb.from('pagos').select('*').eq('miembro_id', miembroId).order('created_at', { ascending: false })); },
     async registrarPago(miembroId, { meses, monto, metodo, nota }) {
@@ -211,6 +215,14 @@ function crearDemo() {
     perfiles: [coach, ana, luis],
     bloques: [{ id: 'b1', miembro_id: 'ana', nombre: 'Bloque 1 · Base aeróbica + fuerza', fecha_inicio: iso(iniBloque), semanas: 4, notas: 'Construir base sin lesionarse.', activo: true, created_at: hace(14) }],
     sesiones: [], items: [], registros: [], checkins: [], videos: [], invitaciones: [],
+    anamnesis: [{ miembro_id: 'ana', paso: 6, completada: true, alerta_salud: true, completada_at: hace(20), revisada_at: null, datos: {
+      nacimiento: '1994-03-12', sexo: 'Mujer', estatura: '163', peso: '64.2', ocupacion: 'Contadora', actividad_laboral: 'Sentado', emergencia_nombre: 'Carlos López (esposo)', emergencia_tel: '+502 5555 0000',
+      parq: ['No', 'No', 'No', 'No', 'No', 'Sí', 'No'], condiciones: ['Ninguna'], medicamentos: 'Ninguno', cirugias: '', embarazo: 'No',
+      dolor_actual: 'Sí', dolor_zona: ['Rodilla'], dolor_intensidad: 3, dolor_detalle: 'Molestia en la rodilla derecha al bajar gradas después de correr.', lesiones_previas: 'Esguince de tobillo izquierdo en 2021, sin secuelas.',
+      sueno: '6 a 7', estres: 4, alimentacion: 'Regular', agua: '1 a 2 L', tabaco: 'No', alcohol: 'Ocasional',
+      experiencia: '6 meses a 2 años', actual: '1 a 2 días', deportes: 'Natación en el colegio', marcas: '5K en 31 min', fc_reposo: '68',
+      objetivo: 'Correr mis primeros 10K en abril sin lesionarme.', motivo: 'Quiero demostrarme que puedo ser constante.', dias: ['Lunes', 'Martes', 'Jueves', 'Sábado'], minutos: '60 min', lugar: ['Gimnasio', 'Aire libre'], equipo: ['Ligas'], no_gusta: 'Burpees',
+      veraz: true, avisar: true, riesgo: true } }],
     cobro: { instrucciones: 'Transferencia a Banco Industrial · Cuenta monetaria 000-000000-0 a nombre de Víctor Sánchez. Envíame el comprobante por WhatsApp.', whatsapp: '50255555555', gracia: 5 },
     pagos: [{ id: 'p1', miembro_id: 'ana', fecha: iso(new Date(Date.now() - 32 * 86400000)), monto: 450, meses: 1, metodo: 'Transferencia', nota: '', cubre_hasta: iso(new Date(Date.now() - 2 * 86400000)), created_at: hace(32) }],
     aplicaciones: [
@@ -241,6 +253,8 @@ function crearDemo() {
   db.checkins.push({ id: uuid(), miembro_id: 'ana', peso: 63.8, sueno: 3, energia: 3, sesiones_cumplidas: 3, comentario: 'Dormí poco por trabajo.', respuesta: null, created_at: hace(1) });
   db.videos.push({ id: uuid(), miembro_id: 'ana', ejercicio: 'Sentadilla goblet', ruta: '', nota: 'Siento que se me van las rodillas hacia adentro.', comentario: null, estado: 'pendiente', created_at: hace(1), perfiles: { nombre: 'Ana López', correo: 'ana@ejemplo.com' } });
 
+  // ?demo&anamnesis muestra el cuestionario inicial como lo vería un miembro nuevo
+  if (new URLSearchParams(location.search).has('anamnesis')) db.anamnesis = [];
   let yo = null;
   const conHijos = s => ({ ...s, items: db.items.filter(i => i.sesion_id === s.id).sort((a, b) => a.orden - b.orden), registros: db.registros.filter(r => r.sesion_id === s.id) });
   const espera = v => new Promise(r => setTimeout(() => r(v), 60));
@@ -316,6 +330,10 @@ function crearDemo() {
     async resumenMiembro(m) { return resumen(api, m); },
     async ajustesCobro() { return espera({ ...db.cobro }); },
     async guardarAjustesCobro(a) { db.cobro = { ...a, gracia: Number(a.gracia) }; return espera(); },
+    async anamnesis(mid) { return espera(db.anamnesis.find(a => a.miembro_id === mid) || null); },
+    async anamnesisTodas() { return espera(db.anamnesis.map(a => ({ ...a }))); },
+    async guardarAnamnesis(mid, c) { let a = db.anamnesis.find(x => x.miembro_id === mid); if (!a) { a = { miembro_id: mid, datos: {}, paso: 0, completada: false }; db.anamnesis.push(a); } Object.assign(a, c); return espera(a); },
+    async actualizarAnamnesis(mid, c) { const a = db.anamnesis.find(x => x.miembro_id === mid); if (a) Object.assign(a, c); return espera(a); },
     async eliminarMiembro(id) { db.perfiles = db.perfiles.filter(p => p.id !== id); return espera(); },
     async pagos(mid) { return espera(db.pagos.filter(x => x.miembro_id === mid)); },
     async registrarPago(mid, { meses, monto, metodo, nota }) {

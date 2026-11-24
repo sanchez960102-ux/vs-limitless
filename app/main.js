@@ -1,6 +1,7 @@
 import { crearDatos, DIAS, semanaActual, diaSemanaHoy, diasDesde, puedeVideos, checkinCada, estadoPago } from '/shared/data.js';
 import { $, $$, esc, fecha, aviso, cargando, vacio, datosForm, dialogo, registrarSW } from '/shared/ui.js';
 import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
+import { PASOS, htmlPaso, leerPaso, alertas, requiereRevisionMedica } from '/shared/anamnesis.js';
 
 const raiz = $('#raiz');
 let db, yo, bloque, cobro, pago;
@@ -37,6 +38,8 @@ async function arrancar() {
   cobro = await db.ajustesCobro().catch(() => ({ instrucciones: '', whatsapp: '', gracia: 5 }));
   pago = estadoPago(yo, cobro.gracia);
   if (pago.tipo === 'bloqueado') return pantallaPago();
+  const an = await db.anamnesis(yo.id).catch(() => null);
+  if (!an?.completada) return pantallaAnamnesis(an);
   bloque = await db.bloqueActivo(yo.id);
   pintarMarco();
   window.onhashchange = enrutar;
@@ -71,6 +74,69 @@ function bandaPago() {
   if (pago?.tipo === 'gracia') return `<a class="banda-pago urgente" href="#/cuenta" id="banda-pago"><b>Mensualidad vencida · tu acceso se pausa el ${fechaLarga(pago.limite)}</b><span>Ver cómo pagar →</span></a>`;
   return '';
 }
+/* ---------------------------------------------------------- Anamnesis */
+function pantallaAnamnesis(an) {
+  const d = { ...(an?.datos || {}) };
+  if (!d.objetivo && yo.objetivo) d.objetivo = yo.objetivo;
+  let i = Math.min(an?.paso || 0, PASOS.length - 1);
+  const nuevo = !an;
+  const pintar = () => {
+    const p = PASOS[i], ultimo = i === PASOS.length - 1;
+    raiz.innerHTML = `<main class="anamnesis"><div class="an-in">
+      <header class="an-cab"><img src="/img/vs-limitless-horizontal-claro.svg" alt="VS Limitless" width="150" height="45"><span>Paso ${i + 1} de ${PASOS.length}</span></header>
+      <div class="an-barra" aria-hidden="true"><i style="width:${(i + 1) / PASOS.length * 100}%"></i></div>
+      ${i === 0 ? `<div class="card an-bienvenida"><p class="card-t" style="margin-bottom:8px">${nuevo ? 'Hola' : 'Hola de nuevo'}, ${esc((yo.nombre || '').split(' ')[0] || 'atleta')}</p>
+        <p class="suave" style="margin:0">Antes de ver tu plan necesito conocerte bien: salud, lesiones, hábitos y objetivo. Son ${PASOS.length} pasos cortos, unos 8 minutos. Cada paso se guarda solo, así que puedes terminar después.</p></div>` : ''}
+      <div><p class="eyebrow"><span class="punto"></span>Anamnesis inicial</p><h1 class="h2" style="margin:6px 0">${esc(p.titulo)}</h1><p class="suave" style="margin:0">${esc(p.intro)}</p></div>
+      <form id="f-an" class="form an-form" novalidate>
+        <div id="an-campos" class="an-campos">${htmlPaso(p, d)}</div>
+        <div class="an-nav">${i > 0 ? '<button type="button" class="btn btn-linea btn-pill" id="atras">Atrás</button>' : ''}
+          <button class="btn btn-pill ${ultimo ? 'btn-rojo' : ''}" type="submit">${ultimo ? 'Enviar a Vic' : 'Continuar'}</button></div>
+      </form>
+      <button class="link" id="salir" style="align-self:center">Cerrar sesión</button>
+    </div></main>`;
+    window.scrollTo(0, 0);
+    const f = $('#f-an');
+    f.addEventListener('change', e => {
+      if (!['radio', 'checkbox'].includes(e.target.type)) return;
+      leerPaso(f, p, d); $('#an-campos').innerHTML = htmlPaso(p, d);
+    });
+    $('#salir').onclick = async () => { await db.salir(); arrancar(); };
+    const atras = $('#atras'); if (atras) atras.onclick = () => { leerPaso(f, p, d); i--; pintar(); };
+    f.onsubmit = async e => {
+      e.preventDefault();
+      const faltan = leerPaso(f, p, d);
+      $$('.an-falta', f).forEach(x => x.classList.remove('an-falta'));
+      if (faltan.length) {
+        faltan.forEach(k => f.querySelector(`[data-k="${k}"]`)?.classList.add('an-falta'));
+        f.querySelector('.an-falta')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return aviso('Completa lo que está marcado en rojo.', 'error');
+      }
+      const btn = f.querySelector('[type=submit]'); btn.disabled = true;
+      try {
+        if (ultimo) {
+          await db.guardarAnamnesis(yo.id, { datos: d, paso: PASOS.length, completada: true, alerta_salud: alertas(d).length > 0, completada_at: new Date().toISOString() });
+          return pantallaAnamnesisLista(requiereRevisionMedica(d));
+        }
+        await db.guardarAnamnesis(yo.id, { datos: d, paso: i + 1, completada: false });
+        i++; pintar();
+      } catch (err) { btn.disabled = false; aviso('No se pudo guardar. Revisa tu conexión e intenta de nuevo.', 'error'); }
+    };
+  };
+  pintar();
+}
+
+function pantallaAnamnesisLista(revisionMedica) {
+  raiz.innerHTML = `<main class="acceso"><div class="acceso-in">
+    <img src="/img/vs-limitless-horizontal-claro.svg" alt="VS Limitless" width="214" height="64">
+    <div><p class="eyebrow"><span class="punto"></span>Anamnesis enviada</p><h1 class="h1">Gracias.<br><span class="tenue">Ya te conozco mejor.</span></h1></div>
+    <p class="suave">Voy a revisar tus respuestas para ajustar tu plan a ti. Si cambia algo de tu salud, avísame.</p>
+    ${revisionMedica ? `<div class="nota-vic"><span class="nota-vic-firma" aria-hidden="true">VS</span><div><small>Antes de empezar</small><p>Por algunas de tus respuestas, es probable que te pida una autorización médica antes de subir la intensidad. Te escribo para coordinarlo.</p></div></div>` : ''}
+    <button class="btn btn-full btn-pill" id="seguir">Ir a mi plan</button>
+  </div></main>`;
+  $('#seguir').onclick = () => arrancar();
+}
+
 function pantallaInactivo() {
   const baja = yo.estado === 'baja';
   raiz.innerHTML = `<main class="acceso"><div class="acceso-in">

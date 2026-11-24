@@ -155,3 +155,13 @@ input,select,textarea{background:rgba(10,10,12,.45)!important;border-color:rgba(
 .ficha-ctl select{border-radius:20px!important}
 .lista{border-top:0}
 .menu-hoja{display:flex;flex-direction:column;gap:14px}.menu-hoja .h2{margin:0}
+/* Anamnesis */
+.an-alertas{padding:14px 16px;border-radius:16px;background:linear-gradient(160deg,rgba(225,6,0,.22),rgba(225,6,0,.08));border:1px solid rgba(255,90,80,.45)}
+.an-alertas ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.an-medica{margin:12px 0 0;font-weight:600;font-size:14px}
+.an-resumen{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.an-sec{display:flex;flex-direction:column;gap:10px;min-width:0}
+.an-sec .respuestas{margin:0}
+.an-si{color:#ff8a80}
+.an-sec dd ul{margin:6px 0 0;padding-left:18px;font-size:13px}
+@media (max-width:900px){.an-resumen{grid-template-columns:1fr}}

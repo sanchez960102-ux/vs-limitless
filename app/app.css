@@ -297,3 +297,32 @@ body::before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none
 .banda-pago.urgente{background:linear-gradient(160deg,rgba(225,6,0,.38),rgba(225,6,0,.16));border-color:rgba(255,90,80,.55)}
 .aviso-pago{gap:14px}
 .aviso-pago .h2{margin:0}
+
+/* ===== Anamnesis ===== */
+.anamnesis{min-height:100svh;padding:20px 18px 48px}
+.an-in{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.an-cab{display:flex;justify-content:space-between;align-items:center}
+.an-cab img{height:30px;width:auto}
+.an-cab span{font:500 12px var(--texto);color:var(--tinta-tenue);letter-spacing:.06em}
+.an-barra{height:6px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden}
+.an-barra i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--rojo),#ff5a4f);transition:width .4s}
+.an-form{gap:16px}
+.an-campos{display:flex;flex-direction:column;gap:14px}
+.an-campo{border:1px solid var(--vidrio-borde);border-radius:18px;padding:16px;margin:0;display:flex;flex-direction:column;gap:12px;
+  background:var(--vidrio);-webkit-backdrop-filter:var(--vidrio-blur);backdrop-filter:var(--vidrio-blur);box-shadow:var(--vidrio-brillo);min-width:0}
+.an-l{font:600 14px/1.35 var(--texto);color:var(--tinta)}
+.an-campo input,.an-campo textarea{background:var(--hundido);border:1px solid rgba(255,255,255,.12);border-radius:12px;width:100%}
+.an-chips{display:flex;flex-wrap:wrap;gap:8px}
+.an-chips label{position:relative}
+.an-chips input{position:absolute;opacity:0;pointer-events:none}
+.an-chips span{display:inline-block;padding:10px 14px;border-radius:30px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);font:500 14px/1.2 var(--texto);color:var(--tinta-suave);cursor:pointer}
+.an-chips input:checked+span{background:var(--hueso);color:#111;border-color:var(--hueso);font-weight:600}
+.an-chips input:focus-visible+span{outline:2px solid var(--rojo);outline-offset:2px}
+.an-sino{display:flex;flex-direction:column;gap:8px;padding:12px 0;border-top:1px solid rgba(255,255,255,.08)}
+.an-sino p{margin:0;font-size:14px;line-height:1.45;color:var(--tinta-suave)}
+.an-sino input[value="Sí"]:checked+span{background:var(--rojo);border-color:var(--rojo);color:#fff}
+.an-check{display:flex;gap:12px;align-items:flex-start;padding:16px;border-radius:18px;border:1px solid var(--vidrio-borde);background:var(--vidrio);font-size:14px;line-height:1.45;cursor:pointer}
+.an-check input{width:20px;height:20px;flex-shrink:0;margin-top:1px;accent-color:var(--rojo)}
+.an-falta{border-color:rgba(255,90,80,.85)!important;box-shadow:0 0 0 1px rgba(255,90,80,.5)}
+.an-nav{display:flex;gap:10px}
+.an-nav .btn{flex:1}
