@@ -125,6 +125,7 @@ async function crearSupabase() {
     async actualizarMiembro(id, cambios) { return ok(await sb.from('perfiles').update(cambios).eq('id', id).select().single()); },
     async aplicaciones() { return ok(await sb.from('aplicaciones').select('*').order('created_at', { ascending: false })); },
     async marcarAplicacion(id, estado) { ok(await sb.from('aplicaciones').update({ estado }).eq('id', id)); },
+    async borrarAplicaciones(ids) { if (ids.length) ok(await sb.from('aplicaciones').delete().in('id', ids)); },
     async invitaciones() { return ok(await sb.from('invitaciones').select('*').order('created_at', { ascending: false })); },
     async invitar({ correo, nombre, plan, objetivo, aplicacion_id }) {
       return ok(await sb.from('invitaciones').insert({ correo: correo.trim().toLowerCase(), nombre, plan, objetivo, aplicacion_id }).select().single());
@@ -271,6 +272,7 @@ function crearDemo() {
     cobro: { instrucciones: 'Transferencia a Banco Industrial · Cuenta monetaria 000-000000-0 a nombre de Víctor Sánchez. Envíame el comprobante por WhatsApp.', whatsapp: '50255555555', gracia: 5 },
     pagos: [{ id: 'p1', miembro_id: 'ana', fecha: iso(new Date(Date.now() - 32 * 86400000)), monto: 450, meses: 1, metodo: 'Transferencia', nota: '', cubre_hasta: iso(new Date(Date.now() - 2 * 86400000)), created_at: hace(32) }],
     aplicaciones: [
+      { id: 'a0', created_at: hace(9), nombre: 'María Fernández', correo: 'Maria@Ejemplo.com ', whatsapp: '5555-1234', ciudad: 'Guatemala', edad: 32, objetivo: 'Running o resistencia', meta: 'Correr 10K', nivel: 'Entreno a veces, sin plan', dias: 3, lugar: 'Aire libre', lesiones: 'ninguna', por_que_ahora: 'Quiero empezar a correr en serio.', ultima_vez: 'Me aburrí de correr sola.', semana_mala: 'Intentaría hacer algo aunque sea corto.', compromiso: 7, plan: 'Base', acepta_compromiso: true, estado: 'nueva' },
       { id: 'a1', created_at: hace(1), nombre: 'María Fernández', correo: 'maria@ejemplo.com', whatsapp: '+502 5555 1234', ciudad: 'Guatemala', edad: 32, objetivo: 'Running o resistencia', meta: 'Medio maratón en junio', nivel: 'Entreno a veces, sin plan', dias: 4, lugar: 'Gimnasio, Aire libre', lesiones: 'ninguna', por_que_ahora: 'Me inscribí al medio maratón y no quiero improvisar.', ultima_vez: 'Dejé de correr cuando cambié de trabajo y perdí la rutina.', semana_mala: 'Haría lo mínimo y te escribiría para ajustar.', compromiso: 9, plan: 'Limitless', acepta_compromiso: true, estado: 'nueva' },
       { id: 'a2', created_at: hace(3), nombre: 'Jorge Pérez', correo: 'jorge@ejemplo.com', whatsapp: '+502 5555 9876', ciudad: 'Mixco', edad: 27, objetivo: 'Objetivo estético: músculo o grasa', meta: 'Bajar 6 kg', nivel: 'No entreno', dias: 3, lugar: 'Casa', lesiones: 'Dolor de rodilla leve', por_que_ahora: 'Me vi en fotos y quiero cambiar.', ultima_vez: 'Me aburrí a las dos semanas.', semana_mala: 'No sé, probablemente lo dejaría.', compromiso: 5, plan: 'Base', acepta_compromiso: true, estado: 'nueva' }
     ]
@@ -346,6 +348,7 @@ function crearDemo() {
     async actualizarMiembro(id, c) { const m = db.perfiles.find(p => p.id === id); Object.assign(m, c); return espera(m); },
     async aplicaciones() { return espera([...db.aplicaciones].sort((a, b) => b.created_at.localeCompare(a.created_at))); },
     async marcarAplicacion(id, estado) { db.aplicaciones.find(a => a.id === id).estado = estado; },
+    async borrarAplicaciones(ids) { db.aplicaciones = db.aplicaciones.filter(a => !ids.includes(a.id)); return espera(); },
     async invitaciones() { return espera(db.invitaciones); },
     async invitar(d) {
       const inv = { id: uuid(), usada: true, created_at: new Date().toISOString(), ...d };

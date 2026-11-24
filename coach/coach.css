@@ -180,3 +180,6 @@ input,select,textarea{background:rgba(10,10,12,.45)!important;border-color:rgba(
 .comp-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:start}
 .comp-seg input{width:100%;padding:8px 10px}
 @media (max-width:1000px){.comp-grid{grid-template-columns:1fr}}
+.repetidas{display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:16px;background:rgba(227,179,65,.10);border:1px solid rgba(227,179,65,.4)}
+.repetida{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:13px;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)}
+.repetida:first-of-type{border-top:0}

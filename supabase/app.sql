@@ -240,3 +240,8 @@ create index if not exists sesiones_bloque_semana on public.sesiones (bloque_id,
 create index if not exists registros_miembro on public.registros (miembro_id, created_at desc);
 create index if not exists checkins_miembro on public.checkins (miembro_id, created_at desc);
 create index if not exists videos_estado on public.videos (estado, created_at desc);
+
+-- El coach puede borrar aplicaciones que no quiere conservar (las invitaciones quedan sin referencia)
+grant delete on public.aplicaciones to authenticated;
+drop policy if exists "coach borra aplicaciones" on public.aplicaciones;
+create policy "coach borra aplicaciones" on public.aplicaciones for delete to authenticated using (public.es_coach());

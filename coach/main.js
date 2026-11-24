@@ -193,37 +193,74 @@ function dialogoInvitar(pre, alInvitar) {
 }
 
 /* --------------------------------------------------------- Aplicaciones */
+// Misma persona: mismo correo o mismos últimos 8 dígitos de WhatsApp
+const correoN = x => String(x || '').trim().toLowerCase();
+const telN = x => String(x || '').replace(/\D/g, '').slice(-8);
+function mismaPersona(a, b) {
+  return a.id !== b.id && ((correoN(a.correo) && correoN(a.correo) === correoN(b.correo)) || (telN(a.whatsapp).length === 8 && telN(a.whatsapp) === telN(b.whatsapp)));
+}
+
 async function vistaAplicaciones(v) {
-  const apps = await db.aplicaciones();
+  const [apps, miembros] = await Promise.all([db.aplicaciones(), db.miembros().catch(() => [])]);
+  const otras = a => apps.filter(b => mismaPersona(a, b));
+  const esMiembro = a => miembros.some(m => correoN(m.correo) === correoN(a.correo));
   const nuevas = apps.filter(a => (a.estado || 'nueva') === 'nueva');
   const resto = apps.filter(a => (a.estado || 'nueva') !== 'nueva');
-  const tarjeta = a => `<div class="app-card" data-id="${a.id}">
-    <div><p class="fila-t">${esc(a.nombre)} <span class="chip" style="margin-left:6px">${esc(a.plan)}</span>${a.estado && a.estado !== 'nueva' ? ` <span class="chip ${a.estado === 'aceptada' ? 'chip-ok' : ''}">${esc(a.estado)}</span>` : ''}</p>
+  const repetidas = apps.filter(a => otras(a).length).length;
+  const tarjeta = a => { const o = otras(a).length; return `<div class="app-card" data-id="${a.id}">
+    <div><p class="fila-t">${esc(a.nombre)} <span class="chip" style="margin-left:6px">${esc(a.plan)}</span>${a.estado && a.estado !== 'nueva' ? ` <span class="chip ${a.estado === 'aceptada' ? 'chip-ok' : ''}">${esc(a.estado)}</span>` : ''}
+      ${o ? ` <span class="chip chip-ambar">Repetida · ${o + 1} veces</span>` : ''}${esMiembro(a) ? ' <span class="chip chip-ok">Ya es miembro</span>' : ''}</p>
       <p class="suave" style="margin:6px 0 0">${esc(a.meta || a.objetivo)}</p>
       <div class="meta"><span>${hace(a.created_at)}</span><span>${esc(a.ciudad || '')}</span><span>${esc(a.nivel || '')}</span><span>${esc(a.dias || '?')} días/sem</span></div></div>
     <div style="display:flex;align-items:center;gap:16px"><div style="text-align:right"><span class="compromiso" style="color:${a.compromiso >= 8 ? 'var(--tinta)' : a.compromiso >= 6 ? '#e3b341' : 'var(--rojo-texto)'}">${a.compromiso}/10</span><div class="fila-s">compromiso</div></div>
-      <button class="btn btn-sm btn-linea" data-ver="${a.id}">Ver</button></div></div>`;
+      <button class="btn btn-sm btn-linea" data-ver="${a.id}">Ver</button></div></div>`; };
   v.innerHTML = `
     <div class="titulo"><div><p class="eyebrow">Desde tu landing</p><h1 class="h1">Aplicaciones</h1></div></div>
+    ${repetidas ? `<p class="suave" style="margin:0">Hay ${repetidas} aplicaciones repetidas: la misma persona aplicó más de una vez. Al abrir una, ves las demás y puedes quedarte solo con la que quieras.</p>` : ''}
     <section><p class="eyebrow">Nuevas · ${nuevas.length}</p>${nuevas.map(tarjeta).join('') || vacio('Sin aplicaciones nuevas', 'Cuando alguien aplique en tu landing aparecerá aquí y te llegará por correo.')}</section>
     ${resto.length ? `<section><p class="eyebrow">Revisadas</p>${resto.map(tarjeta).join('')}</section>` : ''}`;
-  $$('[data-ver]', v).forEach(b => b.onclick = () => detalleAplicacion(apps.find(a => a.id === b.dataset.ver)));
+  $$('[data-ver]', v).forEach(b => b.onclick = () => { const a = apps.find(x => x.id === b.dataset.ver); detalleAplicacion(a, otras(a), esMiembro(a)); });
 }
 
-function detalleAplicacion(a) {
+function confirmarBorrarAplicaciones(ids, texto, alTerminar) {
+  dialogo(`<div class="menu-hoja"><p class="eyebrow">Aplicaciones</p><h2 class="h2">${ids.length === 1 ? '¿Borrar esta aplicación?' : `¿Borrar ${ids.length} aplicaciones?`}</h2>
+      <p class="suave" style="margin:0">${texto} No se puede deshacer.</p>
+      <button class="btn btn-rojo btn-full" id="si">Borrar</button></div>`, d => {
+    $('#si', d).onclick = async () => {
+      try { await db.borrarAplicaciones(ids); d.close(); aviso(ids.length === 1 ? 'Aplicación borrada' : `${ids.length} aplicaciones borradas`); actualizarCuentas(); alTerminar?.(); enrutar(); }
+      catch { aviso('No se pudo borrar.', 'error'); }
+    };
+  });
+}
+
+function detalleAplicacion(a, otras = [], yaMiembro = false) {
   const filas = [['Objetivo', a.objetivo], ['Meta', a.meta], ['Nivel actual', a.nivel], ['Días disponibles', a.dias], ['Dónde entrena', a.lugar], ['Lesiones', a.lesiones],
     ['¿Por qué ahora?', a.por_que_ahora], ['La última vez que dejó de entrenar', a.ultima_vez], ['Si la semana 3 se complica', a.semana_mala]];
+  const ordenadas = [...otras].sort((x, y) => y.created_at.localeCompare(x.created_at));
   dialogo(`<div class="form">
     <div><p class="eyebrow">${fecha(a.created_at, { day: 'numeric', month: 'long' })} · ${esc(a.ciudad || '')} · ${esc(a.edad || '')} años</p><h2 class="h2">${esc(a.nombre)}</h2>
       <p class="suave" style="margin:8px 0 0">${esc(a.correo)} · ${esc(a.whatsapp || '')}</p></div>
+    ${yaMiembro ? '<p class="chip chip-ok" style="align-self:flex-start;margin:0">Esta persona ya es miembro de tu equipo</p>' : ''}
+    ${ordenadas.length ? `<div class="repetidas"><p class="eyebrow" style="color:#e3b341">También aplicó ${ordenadas.length === 1 ? 'otra vez' : ordenadas.length + ' veces más'}</p>
+      ${ordenadas.map(o => `<div class="repetida"><span>${fecha(o.created_at, { day: 'numeric', month: 'short', year: 'numeric' })} · ${esc(o.plan)} · compromiso ${o.compromiso}/10 · ${esc(o.estado || 'nueva')}</span>
+        <button class="link" type="button" data-otra="${o.id}">Ver</button></div>`).join('')}
+      <button class="link link-peligro" type="button" id="borrar-otras" style="align-self:flex-start">Borrar ${ordenadas.length === 1 ? 'la otra' : 'las otras ' + ordenadas.length} y quedarme con esta</button></div>` : ''}
     <div class="cifras"><div class="cifra"><span class="num">${a.compromiso}/10</span><small>Compromiso</small></div><div class="cifra"><span class="num" style="font-size:28px">${esc(a.plan)}</span><small>Plan de interés</small></div><div class="cifra"><span class="num">${esc(a.dias || '?')}</span><small>Días/semana</small></div></div>
     <dl class="respuestas">${filas.map(([t, val]) => `<div><dt>${t}</dt><dd>${esc(val || '—')}</dd></div>`).join('')}</dl>
     ${(a.estado || 'nueva') === 'nueva' ? `<div class="grid2"><button class="btn btn-rojo" id="aceptar">Aceptar e invitar</button><button class="btn btn-linea" id="descartar">Descartar</button></div>` : ''}
     ${a.whatsapp ? `<a class="link" href="https://wa.me/${esc(a.whatsapp.replace(/\D/g, ''))}" target="_blank" rel="noopener">Escribirle por WhatsApp para agendar la llamada</a>` : ''}
+    <button class="link link-peligro" type="button" id="borrar-app" style="align-self:flex-start">Borrar esta aplicación</button>
   </div>`, d => {
     const acep = $('#aceptar', d), desc = $('#descartar', d);
     if (acep) acep.onclick = () => { d.close(); dialogoInvitar(a, async () => { await db.marcarAplicacion(a.id, 'aceptada'); actualizarCuentas(); }); };
     if (desc) desc.onclick = async () => { await db.marcarAplicacion(a.id, 'descartada'); d.close(); aviso('Aplicación descartada'); actualizarCuentas(); enrutar(); };
+    $('#borrar-app', d).onclick = () => { d.close(); confirmarBorrarAplicaciones([a.id], `Se borra la aplicación de ${esc(a.nombre)} del ${fecha(a.created_at, { day: 'numeric', month: 'long' })}.`); };
+    const bo = $('#borrar-otras', d);
+    if (bo) bo.onclick = () => { d.close(); confirmarBorrarAplicaciones(ordenadas.map(o => o.id), `Se conserva la del ${fecha(a.created_at, { day: 'numeric', month: 'long' })} y se borran las demás de ${esc(a.nombre)}.`); };
+    $$('[data-otra]', d).forEach(b => b.onclick = () => {
+      const o = ordenadas.find(x => x.id === b.dataset.otra); d.close();
+      detalleAplicacion(o, [a, ...ordenadas.filter(x => x.id !== o.id)], yaMiembro);
+    });
   });
 }
 
