@@ -73,8 +73,8 @@ function pintarMarco() {
 
 async function actualizarCuentas() {
   try {
-    const [apps, vids] = await Promise.all([db.aplicaciones(), db.videosPendientes()]);
-    cuentas.aplicaciones = apps.filter(a => (a.estado || 'nueva') === 'nueva').length;
+    const [apps, vids, conts] = await Promise.all([db.aplicaciones(), db.videosPendientes(), db.contactos().catch(() => [])]);
+    cuentas.aplicaciones = apps.filter(a => (a.estado || 'nueva') === 'nueva').length + conts.filter(k => k.estado === 'nuevo').length;
     cuentas.videos = vids.length;
     Object.entries(cuentas).forEach(([k, n]) => { const el = $(`[data-c="${k}"]`); if (el) { el.textContent = n; el.hidden = !n; } });
   } catch (e) { console.error(e); }
@@ -201,7 +201,7 @@ function mismaPersona(a, b) {
 }
 
 async function vistaAplicaciones(v) {
-  const [apps, miembros] = await Promise.all([db.aplicaciones(), db.miembros().catch(() => [])]);
+  const [apps, miembros, contactos] = await Promise.all([db.aplicaciones(), db.miembros().catch(() => []), db.contactos().catch(() => [])]);
   const otras = a => apps.filter(b => mismaPersona(a, b));
   const esMiembro = a => miembros.some(m => correoN(m.correo) === correoN(a.correo));
   const nuevas = apps.filter(a => (a.estado || 'nueva') === 'nueva');
@@ -218,8 +218,24 @@ async function vistaAplicaciones(v) {
     <div class="titulo"><div><p class="eyebrow">Desde tu landing</p><h1 class="h1">Aplicaciones</h1></div></div>
     ${repetidas ? `<p class="suave" style="margin:0">Hay ${repetidas} aplicaciones repetidas: la misma persona aplicó más de una vez. Al abrir una, ves las demás y puedes quedarte solo con la que quieras.</p>` : ''}
     <section><p class="eyebrow">Nuevas · ${nuevas.length}</p>${nuevas.map(tarjeta).join('') || vacio('Sin aplicaciones nuevas', 'Cuando alguien aplique en tu landing aparecerá aquí y te llegará por correo.')}</section>
-    ${resto.length ? `<section><p class="eyebrow">Revisadas</p>${resto.map(tarjeta).join('')}</section>` : ''}`;
+    ${resto.length ? `<section><p class="eyebrow">Revisadas</p>${resto.map(tarjeta).join('')}</section>` : ''}
+    ${contactos.length ? `<section><p class="eyebrow">Contactos de la calculadora de zonas · ${contactos.filter(k => k.estado === 'nuevo').length} nuevos</p>
+      <p class="suave" style="margin:0 0 12px">Personas que calcularon sus zonas en tu landing y te dejaron su WhatsApp. Les prometiste escribirles para explicarles cómo usarlas.</p>
+      ${contactos.map(k => `<div class="app-card contacto ${k.estado}">
+        <div><p class="fila-t">${esc(k.nombre)} ${k.estado !== 'nuevo' ? `<span class="chip">${k.estado}</span>` : '<span class="chip chip-ambar">Nuevo</span>'}</p>
+          <p class="suave" style="margin:6px 0 0">${esc(k.datos?.prueba || '')}${k.datos?.umbral ? ` · umbral ${esc(k.datos.umbral)}` : ''}${k.datos?.fc_umbral ? ` · FC ${esc(k.datos.fc_umbral)}` : ''}</p>
+          <div class="meta"><span>${hace(k.created_at)}</span><span>${esc(k.whatsapp)}</span>${k.datos?.z2 ? `<span>Z2 ${esc(k.datos.z2)}</span>` : ''}</div></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <a class="btn btn-sm" target="_blank" rel="noopener" data-wa="${k.id}" href="https://wa.me/${esc(k.whatsapp.replace(/\D/g, '').replace(/^(\d{8})$/, '502$1'))}?text=${encodeURIComponent(`Hola ${k.nombre.split(' ')[0]}, soy Vic de VS Limitless. Vi que calculaste tus zonas con tu ${k.datos?.prueba || 'prueba'}. Te cuento cómo usarlas en tu semana:`)}">WhatsApp</a>
+          ${k.estado !== 'descartado' ? `<button class="btn btn-sm btn-linea" data-descartar-c="${k.id}">Descartar</button>` : ''}
+          <button class="link link-peligro" data-borrar-c="${k.id}">Borrar</button></div></div>`).join('')}</section>` : ''}`;
   $$('[data-ver]', v).forEach(b => b.onclick = () => { const a = apps.find(x => x.id === b.dataset.ver); detalleAplicacion(a, otras(a), esMiembro(a)); });
+  $$('[data-wa]', v).forEach(b => b.addEventListener('click', async () => { const k = contactos.find(x => x.id === b.dataset.wa); if (k.estado === 'nuevo') { await db.marcarContacto(k.id, 'contactado'); actualizarCuentas(); setTimeout(enrutar, 400); } }));
+  $$('[data-descartar-c]', v).forEach(b => b.onclick = async () => { await db.marcarContacto(b.dataset.descartarC, 'descartado'); actualizarCuentas(); enrutar(); });
+  $$('[data-borrar-c]', v).forEach(b => b.onclick = () => dialogo(`<div class="menu-hoja"><p class="eyebrow">Contactos</p><h2 class="h2">¿Borrar este contacto?</h2>
+      <p class="suave" style="margin:0">No se puede deshacer.</p><button class="btn btn-rojo btn-full" id="si">Borrar</button></div>`, d => {
+    $('#si', d).onclick = async () => { await db.borrarContacto(b.dataset.borrarC); d.close(); aviso('Contacto borrado'); actualizarCuentas(); enrutar(); };
+  }));
 }
 
 function confirmarBorrarAplicaciones(ids, texto, alTerminar) {

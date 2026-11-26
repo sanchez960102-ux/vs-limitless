@@ -22,7 +22,7 @@
   <nav class="top-nav" aria-label="Secciones">
     <a href="#metodo">Método</a>
     <a href="#planes">Planes</a>
-    <a href="#aplicar" class="top-cta">Aplicar</a>
+    <a href="#la-app" class="top-app">La app</a><a href="#aplicar" class="top-cta">Aplicar</a>
   </nav>
 </header>
 
@@ -36,7 +36,7 @@
     <h1 class="h-xl">No necesitas más motivación.<br><span class="tenue">Necesitas un plan.</span></h1>
     <div class="hero-pie">
       <div class="hero-txt"><p class="lema">Fuerte y rápido. No tienes que elegir.</p><p class="lead">Coaching híbrido en línea, basado en evidencia. Fuerza, running y preparación física diseñados alrededor de tu vida, con seguimiento real.</p></div>
-      <a href="#aplicar" class="btn">Aplicar al equipo</a>
+      <div class="hero-ctas"><a href="#aplicar" class="btn">Aplicar al equipo</a><a href="/app/?demo" class="btn btn-vidrio">Mira la app por dentro</a></div>
     </div>
   </div>
 </section>
@@ -90,10 +90,66 @@
   </ol>
 </section>
 
+<section class="metodo" id="la-app">
+  <div class="wrap seccion">
+    <header class="sec-head">
+      <p class="eyebrow"><span>04</span>Tu app</p>
+      <h2 class="h-l">Todo tu entrenamiento,<br><span class="tenue">en tu bolsillo.</span></h2>
+    </header>
+    <div class="app-bloques">
+      <article class="app-bloque">
+        <figure class="tel"><img src="img/app-pantallas/cargas.jpg" alt="Pantalla de una sesión de fuerza con registro de peso por serie y sugerencia de carga" width="540" height="1169" loading="lazy"></figure>
+        <div class="app-txt"><p class="app-tag">Progresión de cargas</p><h3>Anotas tus pesos.<br>Te digo cuándo subir.</h3>
+          <p>Registras cada serie en segundos. La app recuerda qué hiciste la vez pasada y te sugiere el peso de hoy: si completaste todas las repeticiones, subes; si no, consolidas.</p></div>
+      </article>
+      <article class="app-bloque">
+        <figure class="tel"><img src="img/app-pantallas/zonas.jpg" alt="Pantalla de un rodaje con la zona 2 personal en pulsaciones y ritmo" width="540" height="1169" loading="lazy"></figure>
+        <div class="app-txt"><p class="app-tag">Zonas personales</p><h3>Tu Z2 no es la de tu amigo.</h3>
+          <p>Con tus tests calculo tus pulsaciones y ritmos reales. Cuando la sesión dice Z2, ves tus números exactos, y se actualizan solos cada vez que mejoras.</p></div>
+      </article>
+      <article class="app-bloque">
+        <figure class="tel"><img src="img/app-pantallas/mapa.jpg" alt="Mapa corporal con segmentos coloreados según la medición InBody" width="540" height="1169" loading="lazy"></figure>
+        <div class="app-txt"><p class="app-tag">Mapa corporal</p><h3>Ves tu cuerpo cambiar, segmento por segmento.</h3>
+          <p>Cada medición InBody se convierte en un mapa: qué ganó músculo, qué perdió grasa y si un lado va detrás del otro. Sin adivinar en el espejo.</p></div>
+      </article>
+      <article class="app-bloque">
+        <figure class="tel"><img src="img/app-pantallas/hoy.jpg" alt="Pantalla de inicio con el avance de la semana y la sesión del día" width="540" height="1169" loading="lazy"></figure>
+        <div class="app-txt"><p class="app-tag">Tu semana</p><h3>Abres la app y sabes qué toca.</h3>
+          <p>Tu sesión del día, tu avance de la semana y mis comentarios en cada ejercicio. Se instala desde el navegador, sin descargar nada de una tienda.</p></div>
+      </article>
+    </div>
+    <div class="cta-fila"><a href="/app/?demo" class="btn">Mira la app por dentro</a><a href="#aplicar" class="btn btn-linea">Aplicar al equipo</a></div>
+  </div>
+</section>
+
+<section class="wrap seccion" id="zonas">
+  <header class="sec-head">
+    <p class="eyebrow"><span>05</span>Herramienta gratis</p>
+    <h2 class="h-l">Descubre tus zonas<br><span class="tenue">reales de carrera.</span></h2>
+    <p class="lead" style="margin-top:24px">Escribe el resultado de una prueba reciente y calcula tus ritmos de entrenamiento con el mismo método que uso con mis atletas.</p>
+  </header>
+  <div class="calc">
+    <form class="calc-form" id="f-calc" novalidate>
+      <fieldset class="calc-tests"><legend>¿Qué prueba hiciste?</legend>
+        <label class="chip"><input type="radio" name="prueba" value="5000" checked><span>5 km</span></label>
+        <label class="chip"><input type="radio" name="prueba" value="3000"><span>3 km</span></label>
+        <label class="chip"><input type="radio" name="prueba" value="1000"><span>1 km</span></label>
+        <label class="chip"><input type="radio" name="prueba" value="30min"><span>Test de 30 min</span></label>
+      </fieldset>
+      <div class="calc-campos" id="calc-campos"></div>
+      <button class="btn" type="submit">Calcular mis zonas</button>
+      <p class="calc-ayuda">Si no tienes una prueba reciente, corre 5 km al mejor ritmo que puedas sostener y vuelve con tu tiempo.</p>
+    </form>
+    <div class="calc-res" id="calc-res" aria-live="polite">
+      <p class="calc-vacio">Tus zonas aparecerán aquí.</p>
+    </div>
+  </div>
+</section>
+
 <section class="sobre" id="sobre-vic">
   <div class="sobre-img"><img src="img/vic-coach.jpg" alt="Vic Sánchez haciendo doble bíceps" width="857" height="1000" loading="lazy"></div>
   <div class="sobre-txt">
-    <p class="eyebrow"><span>04</span>Tu coach</p>
+    <p class="eyebrow"><span>06</span>Tu coach</p>
     <h2 class="h-l">Vic Sánchez</h2>
     <p class="cita">«Mi trabajo no es mandarte una rutina. Es leer tus datos cada semana y ajustar antes de que te estanques.»</p>
     <p>Licenciado en Acondicionamiento Físico y Recreación, certificado en seis especialidades. Programo para principiantes, atletas de resistencia, adultos mayores y embarazadas, y como atleta híbrido sé lo que cuesta sostener fuerza y resistencia con trabajo y una agenda real.</p>
@@ -105,12 +161,13 @@
       <div><dt>Deporte</dt><dd>Taekwondo, atletismo y natación</dd></div>
       <div><dt>Carreras</dt><dd><ul class="cv-chips"><li>5K</li><li>10K</li><li>15K</li><li>21K</li><li>42K</li><li>Duatlón estándar</li></ul></dd></div>
     </dl>
+    <div class="cta-fila cta-sobre"><a href="#aplicar" class="btn">Quiero entrenar contigo</a></div>
   </div>
 </section>
 
 <section class="wrap seccion" id="planes">
   <header class="sec-head">
-    <p class="eyebrow"><span>05</span>Planes</p>
+    <p class="eyebrow"><span>07</span>Planes</p>
     <h2 class="h-l">Elige tu nivel de acompañamiento.</h2>
   </header>
   <div class="planes">
@@ -142,7 +199,7 @@
         <li>Revisión de técnica por video, ejercicio por ejercicio</li>
         <li>Soporte directo por WhatsApp, lunes a viernes</li>
       </ul>
-      <p class="trimestral">o Q1,250 por 3 meses, ahorras Q100</p>
+      <p class="trimestral"><b>o Q1,250 por 3 meses</b><span>Q417 al mes · ahorras Q100</span></p>
       <p class="plan-nota">Compromiso mínimo de 3 meses</p>
       <a href="#aplicar" class="btn btn-osc" data-plan="Limitless">Aplicar a Limitless</a>
     </article>
@@ -159,7 +216,7 @@
         <li>Periodización hacia tu evento: carrera, duatlón o temporada</li>
         <li>WhatsApp prioritario, 7 días</li>
       </ul>
-      <p class="trimestral">o Q2,650 por 3 meses, ahorras Q200</p>
+      <p class="trimestral"><b>o Q2,650 por 3 meses</b><span>Q883 al mes · ahorras Q200</span></p>
       <p class="plan-nota">Compromiso mínimo de 3 meses</p>
       <a href="#aplicar" class="btn btn-linea" data-plan="Élite">Aplicar a Élite</a>
     </article>
@@ -170,7 +227,7 @@
 <section class="metodo" id="como">
   <div class="wrap seccion">
     <header class="sec-head">
-      <p class="eyebrow"><span>06</span>Cómo funciona</p>
+      <p class="eyebrow"><span>08</span>Cómo funciona</p>
       <h2 class="h-l">Tres pasos.</h2>
     </header>
     <ol class="pasos">
@@ -183,7 +240,7 @@
 
 <section class="wrap seccion form-wrap" id="aplicar">
   <header class="sec-head">
-    <p class="eyebrow"><span>07</span>Aplicación</p>
+    <p class="eyebrow"><span>09</span>Aplicación</p>
     <h2 class="h-l">Esto no es para todos.</h2>
     <p class="form-intro">El Equipo Limitless es pequeño a propósito: pocos miembros para darles seguimiento de verdad. Busco gente que no se rinde la primera semana mala. Responde con honestidad: no hay respuestas correctas, solo respuestas reales.</p>
   </header>
@@ -275,7 +332,7 @@
 <section class="metodo" id="preguntas">
   <div class="wrap seccion faq">
     <header class="sec-head">
-      <p class="eyebrow"><span>08</span>Preguntas</p>
+      <p class="eyebrow"><span>10</span>Preguntas</p>
       <h2 class="h-l">Antes de aplicar.</h2>
     </header>
     <div>
@@ -283,6 +340,9 @@
       <details><summary>¿Incluye plan de alimentación?</summary><p>Incluye guía de hábitos y recomendaciones generales de alimentación para tu objetivo. Si tienes una condición médica o necesitas un plan clínico, te recomiendo trabajarlo junto a un nutricionista.</p></details>
       <details><summary>¿Cómo pago?</summary><p>Una vez confirmado tu plan en la llamada, te comparto los métodos de pago. Puedes pagar mes a mes o por 3 meses con ahorro en Limitless y Élite. El primer pago se hace antes de recibir tu plan.</p></details>
       <details><summary>¿Y si no veo resultados?</summary><p>Por eso el seguimiento: si algo no avanza en dos semanas, lo vemos en tus datos y lo cambiamos. Los resultados dependen de tu constancia; el plan se adapta para que esa constancia sea posible.</p></details>
+      <details><summary>¿Tengo que descargar una app?</summary><p>No. La app se abre desde el navegador de tu celular y la agregas a tu pantalla de inicio en dos toques. Funciona en iPhone y Android, sin tienda de aplicaciones. <a href="/app/?demo">Puedes verla por dentro aquí.</a></p></details>
+      <details><summary>¿Qué pasa si me atraso con un pago?</summary><p>La app te avisa unos días antes de tu fecha. Si se vence, tienes unos días de gracia para ponerte al día sin perder nada. Si pasa ese plazo, tu plan se pausa hasta que se registre el pago, y todo tu historial queda guardado.</p></details>
+      <details><summary>¿Puedo pausar si me lesiono o viajo?</summary><p>Sí. Pausamos tu plan y, cuando vuelves, retomamos desde donde lo dejaste, ajustando las cargas a cómo regresas. Si es una lesión, primero la revisamos y adapto el plan para que sigas avanzando en lo que sí puedes hacer.</p></details>
       <details><summary>¿Puedo cambiar de plan?</summary><p>Sí. Puedes subir de plan cuando quieras. Para bajar, lo hacemos al terminar el compromiso mínimo.</p></details>
     </div>
   </div>
@@ -296,10 +356,16 @@
     <a href="https://instagram.com/vs_limitless" target="_blank" rel="noopener">Instagram · @vs_limitless</a>
     <a href="/app/">Acceso miembros</a>
     <small>© <span id="anio">2026</span> VS Limitless · Guatemala</small>
+    <small class="pie-aviso">Contenido educativo. No sustituye la consulta con un médico o nutricionista.</small>
   </div>
 </footer>
 
+<div class="barra-fija" id="barra-fija" hidden>
+  <a href="/app/?demo" class="btn btn-linea">Ver la app</a><a href="#aplicar" class="btn">Aplicar</a>
+</div>
+
 <script src="config.js"></script>
 <script src="app.js"></script>
+<script type="module" src="calculadora.js"></script>
 </body>
 </html>

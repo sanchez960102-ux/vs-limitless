@@ -126,6 +126,9 @@ async function crearSupabase() {
     async aplicaciones() { return ok(await sb.from('aplicaciones').select('*').order('created_at', { ascending: false })); },
     async marcarAplicacion(id, estado) { ok(await sb.from('aplicaciones').update({ estado }).eq('id', id)); },
     async borrarAplicaciones(ids) { if (ids.length) ok(await sb.from('aplicaciones').delete().in('id', ids)); },
+    async contactos() { return ok(await sb.from('contactos').select('*').order('created_at', { ascending: false })); },
+    async marcarContacto(id, estado) { ok(await sb.from('contactos').update({ estado }).eq('id', id)); },
+    async borrarContacto(id) { ok(await sb.from('contactos').delete().eq('id', id)); },
     async invitaciones() { return ok(await sb.from('invitaciones').select('*').order('created_at', { ascending: false })); },
     async invitar({ correo, nombre, plan, objetivo, aplicacion_id }) {
       return ok(await sb.from('invitaciones').insert({ correo: correo.trim().toLowerCase(), nombre, plan, objetivo, aplicacion_id }).select().single());
@@ -236,6 +239,8 @@ function crearDemo() {
       { id: 't-flexiones', nombre: 'Flexiones máximas', categoria: 'fuerza', unidad: 'reps', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Cuerpo en línea recta, pecho hasta un puño del suelo. Máximas repeticiones continuas.', orden: 15 },
       { id: 't-plancha', nombre: 'Plancha frontal máxima', categoria: 'funcional', unidad: 'tiempo', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Apoyo en antebrazos, cuerpo alineado. Detén el tiempo cuando la cadera caiga o se eleve.', orden: 20 },
       { id: 't-tobillo', nombre: 'Dorsiflexión de tobillo (rodilla a la pared)', categoria: 'movilidad', unidad: 'cm', mejor: 'mayor', distancia: null, calculo: null, protocolo: 'Lleva la rodilla a la pared sin despegar el talón y mide la distancia máxima del dedo gordo a la pared.', orden: 31 }],
+    contactos: [{ id: 'k1', nombre: 'Daniel Ruiz', whatsapp: '+502 4444 1212', fuente: 'calculadora_zonas', estado: 'nuevo', created_at: hace(0),
+      datos: { prueba: '5 km en 26:10', umbral: '5:34 /km', z2: '6:21–7:11 /km', z4: '5:31–5:51 /km', fc_umbral: null } }],
     composicion: [
       { id: 'cp1', miembro_id: 'ana', fecha: iso(new Date(Date.now() - 56 * 86400000)), peso: 66.8, pct_grasa: 31.2, musculo_esqueletico: 24.6, grasa_visceral: 7, agua: 33.4,
         magra_brazo_der: 2.18, grasa_brazo_der: 1.62, magra_brazo_izq: 2.12, grasa_brazo_izq: 1.66, magra_tronco: 20.1, grasa_tronco: 10.4,
@@ -284,7 +289,7 @@ function crearDemo() {
     { dia: 6, titulo: 'Fondo largo', tipo: 'carrera', items: [['Carrera continua', '1', '50 min', '', 'Z2', ''], ['Movilidad de cadera', '1', '8 min', '', '', '']] }
   ];
   const NOTAS_DEMO = {
-    'Sentadilla goblet': 'Baja en 3 segundos y empuja el piso al subir. Rodillas siguiendo la punta del pie. Si las 8 salen fáciles, sube a 22 kg la próxima.',
+    'Sentadilla goblet': 'Baja en 3 segundos y empuja el piso al subir. Rodillas siguiendo la punta del pie. Si las 8 salen fáciles, la app te dirá cuánto subir.',
     'Peso muerto rumano': 'Cadera hacia atrás, espalda neutra. Para cuando sientas el estiramiento atrás del muslo, no antes de la rodilla.',
     'Carrera continua': 'Tienes que poder hablar en frases completas. Si no, baja el ritmo aunque se sienta lento.'
   };
@@ -349,6 +354,9 @@ function crearDemo() {
     async aplicaciones() { return espera([...db.aplicaciones].sort((a, b) => b.created_at.localeCompare(a.created_at))); },
     async marcarAplicacion(id, estado) { db.aplicaciones.find(a => a.id === id).estado = estado; },
     async borrarAplicaciones(ids) { db.aplicaciones = db.aplicaciones.filter(a => !ids.includes(a.id)); return espera(); },
+    async contactos() { return espera([...db.contactos]); },
+    async marcarContacto(id, estado) { db.contactos.find(c => c.id === id).estado = estado; return espera(); },
+    async borrarContacto(id) { db.contactos = db.contactos.filter(c => c.id !== id); return espera(); },
     async invitaciones() { return espera(db.invitaciones); },
     async invitar(d) {
       const inv = { id: uuid(), usada: true, created_at: new Date().toISOString(), ...d };

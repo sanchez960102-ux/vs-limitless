@@ -140,3 +140,13 @@
     });
   });
 })();
+
+// Barra fija de Aplicar en el celular: aparece al pasar la portada y se esconde sobre el formulario
+(function () {
+  var barra = document.getElementById('barra-fija'), hero = document.querySelector('.hero'), form = document.getElementById('aplicar');
+  if (!barra || !hero || !('IntersectionObserver' in window)) return;
+  var heroVisible = true, formVisible = false;
+  function pintar() { barra.hidden = heroVisible || formVisible; }
+  new IntersectionObserver(function (e) { heroVisible = e[0].isIntersecting; pintar(); }, { threshold: 0.05 }).observe(hero);
+  if (form) new IntersectionObserver(function (e) { formVisible = e[0].isIntersecting; pintar(); }, { threshold: 0 }).observe(form);
+})();
