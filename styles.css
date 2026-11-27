@@ -356,3 +356,7 @@ body.con-promo .top{top:38px}
 .plan .promo-tag{align-self:flex-start}
 .precio .precio-cent{font-size:.42em;vertical-align:top;line-height:1.1;margin-left:2px}
 .ps-desde{font-size:17px}@media (max-width:900px){.ps-desde{font-size:13px}}
+.promo-campo{margin:0 0 16px}
+.pa-btn{margin-top:14px;background:#fff;color:#0B0B0B;border-color:#fff}
+.promo-aviso .pa-btn:hover{background:#0B0B0B;color:#fff;border-color:#0B0B0B}
+@media (max-width:640px){.promo-barra{overflow:hidden;white-space:nowrap}}

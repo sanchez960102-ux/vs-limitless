@@ -1,4 +1,5 @@
-import { crearDatos, DIAS, PLANES, TIPOS, semanaActual, diaSemanaHoy, lunesDe, estadoPago, PRECIOS, hoyISO } from '/shared/data.js';
+import { crearDatos, DIAS, PLANES, TIPOS, semanaActual, diaSemanaHoy, lunesDe, estadoPago, PRECIOS, hoyISO, etiquetaOferta, oferta, claveLugares, promoVigente, proximaPromo, tarifaDe, tarifaPactada, precioPrimerMes, cobroSugerido } from '/shared/data.js';
+const q = n => 'Q' + Number(n || 0).toLocaleString('es-GT', { maximumFractionDigits: 2 });
 import { $, $$, esc, fecha, hace, aviso, cargando, vacio, datosForm, dialogo, barraProgreso, lineaSVG, registrarSW } from '/shared/ui.js';
 import { puede, permisos } from '/shared/permisos.js';
 import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.js';
@@ -52,7 +53,7 @@ function pantallaNoCoach() {
 }
 
 function pintarMarco() {
-  const enlaces = [['miembros', 'Miembros'], ['aplicaciones', 'Aplicaciones'], ['videos', 'Videos'], ['tests', 'Tests']];
+  const enlaces = [['miembros', 'Miembros'], ['cobros', 'Cobros'], ['aplicaciones', 'Aplicaciones'], ['videos', 'Videos'], ['tests', 'Tests']];
   raiz.innerHTML = `
   ${db.demo ? '<div class="demo-banda"><b>Modo demostración</b> · datos de ejemplo, nada se guarda</div>' : ''}
   <div class="marco">
@@ -85,7 +86,7 @@ function enrutar() {
   const menu = ruta === 'miembro' ? 'miembros' : ruta;
   $$('[data-r]').forEach(a => a.dataset.r === menu ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
   const v = $('#vista'); cargando(v); window.scrollTo(0, 0);
-  const vistas = { miembros: vistaMiembros, aplicaciones: vistaAplicaciones, videos: vistaVideos, miembro: vistaMiembro, tests: vistaTests };
+  const vistas = { miembros: vistaMiembros, cobros: vistaCobros, aplicaciones: vistaAplicaciones, videos: vistaVideos, miembro: vistaMiembro, tests: vistaTests };
   (vistas[ruta] || vistaMiembros)(v, id, tab).catch(err => { console.error(err); v.innerHTML = vacio('Algo salió mal', err.message || 'Recarga la página.'); });
 }
 
@@ -113,7 +114,7 @@ async function vistaMiembros(v) {
     ${filas.length ? `<table class="tabla"><thead><tr><th>Miembro</th><th>Plan</th><th>Esta semana</th><th>Última actividad</th><th>Atención</th></tr></thead><tbody>
       ${filas.map(({ m, r }) => `<tr class="clic" data-id="${m.id}">
         <td><div class="nombre">${esc(m.nombre || m.correo)}</div><div class="sub">${esc(m.objetivo || m.correo)}</div></td>
-        <td><span class="chip ${m.plan === 'Élite' ? 'chip-claro' : ''}">${esc(m.plan)}</span></td>
+        <td><span class="chip ${m.plan === 'Élite' ? 'chip-claro' : ''}">${esc(m.plan)}</span><div class="sub" style="margin-top:6px">${q(tarifaDe(m))}/mes${m.tarifa_etiqueta ? ' · ' + esc(m.tarifa_etiqueta) : ''}</div></td>
         <td class="col-oculta">${r.adherencia === null ? '<span class="tenue">—</span>' : `<div class="adh"><div class="adh-barra ${r.adherencia < 50 ? 'baja' : ''}"><i style="width:${r.adherencia}%"></i></div><span>${r.hechas}/${r.programadas}</span></div>`}</td>
         <td class="col-oculta tenue">${hace(r.ultima)}</td>
         <td><div class="chips">
@@ -164,18 +165,44 @@ function dialogoCobro(cobro) {
 }
 
 function dialogoInvitar(pre, alInvitar) {
+  const planIni = pre.plan === 'No sé' ? 'Limitless' : pre.plan || 'Limitless';
   dialogo(`<form class="form" id="f-inv">
       <div><p class="eyebrow">Nuevo miembro</p><h2 class="h2">Invitar al equipo</h2></div>
       <div class="grid2"><label>Nombre<input name="nombre" required value="${esc(pre.nombre || '')}"></label>
       <label>Correo<input type="email" name="correo" required value="${esc(pre.correo || '')}"></label></div>
-      <label>Plan<select name="plan" required>${PLANES.map(p => `<option ${p === (pre.plan === 'No sé' ? 'Limitless' : pre.plan || 'Limitless') ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
+      <label>Plan<select name="plan" required>${PLANES.map(p => `<option ${p === planIni ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
       <label>Objetivo<input name="objetivo" value="${esc(pre.meta || pre.objetivo || '')}"></label>
+      <div class="tarjeta" style="display:flex;flex-direction:column;gap:12px;padding:16px">
+        <div><p class="eyebrow">Lo que va a pagar</p>${pre.oferta ? `<p class="suave" style="margin:6px 0 0">Aplicó con <b>${esc(etiquetaOferta(pre.oferta))}</b>${oferta(pre.oferta)?.descuento ? ': el primer mes ya lleva el descuento.' : '.'}${pre.detalle_oferta ? ' «' + esc(pre.detalle_oferta) + '»' : ''}</p>` : ''}</div>
+        <div class="grid3"><label>Al mes (Q)<input name="tarifa" type="number" min="0" step="0.01" required></label>
+          <label>Primer mes (Q)<input name="primer_mes" type="number" min="0" step="0.01" placeholder="Igual"></label>
+          <label>Etiqueta<input name="tarifa_etiqueta" maxlength="60" placeholder="Precio fundador"></label></div>
+        <p class="tenue" style="font-size:13px;margin:0">Deja el primer mes vacío si paga lo mismo desde el inicio. La etiqueta es para ti: precio fundador, precio especial, etc.</p>
+      </div>
       <button class="btn btn-rojo btn-full" type="submit">Invitar</button>
     </form>`, d => {
-    $('#f-inv', d).onsubmit = async e => {
+    const fi = $('#f-inv', d);
+    let tocado = false;
+    const llenar = async () => {
+      const plan = fi.plan.value, lista = PRECIOS[plan]?.[1] ?? '';
+      fi.tarifa.value = lista;
+      const pm = precioPrimerMes(plan, pre.oferta, lista); fi.primer_mes.value = pm ?? '';
+      if (!tocado) {
+        fi.tarifa_etiqueta.value = '';
+        if (plan === 'Limitless') {
+          const fundadores = (await db.miembros().catch(() => [])).filter(m => m.estado !== 'baja' && /fundador/i.test(m.tarifa_etiqueta || '')).length;
+          if (fundadores < 10 && fi.plan.value === 'Limitless') fi.tarifa_etiqueta.value = 'Precio fundador';
+        }
+      }
+    };
+    fi.tarifa_etiqueta.oninput = () => { tocado = true; };
+    fi.tarifa.oninput = () => { const pm = precioPrimerMes(fi.plan.value, pre.oferta, fi.tarifa.value); if (pm !== null) fi.primer_mes.value = pm; };
+    fi.plan.onchange = llenar; llenar();
+    fi.onsubmit = async e => {
       e.preventDefault(); const datos = datosForm(e.target);
+      const num = x => x === '' || x === undefined ? null : Number(x);
       try {
-        await db.invitar({ ...datos, aplicacion_id: pre.id || null });
+        await db.invitar({ ...datos, tarifa: num(datos.tarifa), primer_mes: num(datos.primer_mes), tarifa_etiqueta: (datos.tarifa_etiqueta || '').trim() || null, oferta: pre.oferta || null, aplicacion_id: pre.id || null });
         await alInvitar?.();
         const nombre = datos.nombre.split(' ')[0];
         const msg = `¡Hola ${nombre}! Te doy la bienvenida al Equipo Limitless. Entra a ${URL_APP} con tu correo ${datos.correo}, toca «¿Primera vez?» y crea tu contraseña. Después agrega la app a tu pantalla de inicio y entra siempre con tu correo y contraseña.`;
@@ -201,9 +228,9 @@ function mismaPersona(a, b) {
 }
 
 async function vistaAplicaciones(v) {
-  const [apps, miembros, contactos, lugaresPromo] = await Promise.all([db.aplicaciones(), db.miembros().catch(() => []), db.contactos().catch(() => []), db.promoLugares().catch(() => null)]);
-  const P = window.VSL_CONFIG?.promo;
-  const promoActiva = P && new Date(P.termina).getTime() > Date.now();
+  const P = promoVigente(), sig = proximaPromo();
+  const [apps, miembros, contactos, lugaresPromo] = await Promise.all([db.aplicaciones(), db.miembros().catch(() => []), db.contactos().catch(() => []), P?.lugares ? db.promoLugares(claveLugares(P)).catch(() => null) : null]);
+  const diaL = iso => new Date(iso).toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long' });
   const otras = a => apps.filter(b => mismaPersona(a, b));
   const esMiembro = a => miembros.some(m => correoN(m.correo) === correoN(a.correo));
   const nuevas = apps.filter(a => (a.estado || 'nueva') === 'nueva');
@@ -211,17 +238,18 @@ async function vistaAplicaciones(v) {
   const repetidas = apps.filter(a => otras(a).length).length;
   const tarjeta = a => { const o = otras(a).length; return `<div class="app-card" data-id="${a.id}">
     <div><p class="fila-t">${esc(a.nombre)} <span class="chip" style="margin-left:6px">${esc(a.plan)}</span>${a.estado && a.estado !== 'nueva' ? ` <span class="chip ${a.estado === 'aceptada' ? 'chip-ok' : ''}">${esc(a.estado)}</span>` : ''}
-      ${o ? ` <span class="chip chip-ambar">Repetida · ${o + 1} veces</span>` : ''}${a.oferta === 'black_friday_25' ? ' <span class="chip chip-alerta">Black Friday −25%</span>' : ''}${esMiembro(a) ? ' <span class="chip chip-ok">Ya es miembro</span>' : ''}</p>
+      ${o ? ` <span class="chip chip-ambar">Repetida · ${o + 1} veces</span>` : ''}${a.oferta ? ` <span class="chip chip-alerta">${esc(etiquetaOferta(a.oferta))}</span>` : ''}${esMiembro(a) ? ' <span class="chip chip-ok">Ya es miembro</span>' : ''}</p>
       <p class="suave" style="margin:6px 0 0">${esc(a.meta || a.objetivo)}</p>
       <div class="meta"><span>${hace(a.created_at)}</span><span>${esc(a.ciudad || '')}</span><span>${esc(a.nivel || '')}</span><span>${esc(a.dias || '?')} días/sem</span></div></div>
     <div style="display:flex;align-items:center;gap:16px"><div style="text-align:right"><span class="compromiso" style="color:${a.compromiso >= 8 ? 'var(--tinta)' : a.compromiso >= 6 ? '#e3b341' : 'var(--rojo-texto)'}">${a.compromiso}/10</span><div class="fila-s">compromiso</div></div>
       <button class="btn btn-sm btn-linea" data-ver="${a.id}">Ver</button></div></div>`; };
   v.innerHTML = `
     <div class="titulo"><div><p class="eyebrow">Desde tu landing</p><h1 class="h1">Aplicaciones</h1></div></div>
-    ${promoActiva ? `<div class="tarjeta promo-panel"><div><p class="eyebrow" style="color:#ff8a80">${esc(P.nombre)} · −${P.descuento}% · termina el ${new Date(P.termina).toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-        <p class="h3" style="margin:6px 0 0">Lugares que muestra tu landing</p>
-        <p class="suave" style="margin:6px 0 0">Bájalo cada vez que cierres una venta con la oferta. En 0, la promoción desaparece de la página.</p></div>
-      <div class="promo-ctl"><button class="btn btn-linea" data-lug="-1" type="button" aria-label="Quitar un lugar">−</button><span class="compromiso" id="lug">${lugaresPromo ?? P.lugaresTotales}</span><span class="fila-s">de ${P.lugaresTotales}</span><button class="btn btn-linea" data-lug="1" type="button" aria-label="Agregar un lugar">+</button></div></div>` : ''}
+    ${P ? `<div class="tarjeta promo-panel"><div><p class="eyebrow" style="color:#ff8a80">En tu landing · ${esc(etiquetaOferta(P.id))} · termina el ${diaL(P.termina)}</p>
+        <p class="h3" style="margin:6px 0 0">${P.lugares ? 'Lugares que muestra tu landing' : esc(P.titulo || P.nombre)}</p>
+        <p class="suave" style="margin:6px 0 0">${P.lugares ? 'Bájalo cada vez que cierres una venta con la promoción. En 0, desaparece de la página.' : 'Sin límite de lugares. Se apaga sola en su fecha.'}${sig ? ` Sigue <b>${esc(sig.nombre)}</b> el ${diaL(sig.inicio)}.` : ''}</p></div>
+      ${P.lugares ? `<div class="promo-ctl"><button class="btn btn-linea" data-lug="-1" type="button" aria-label="Quitar un lugar">−</button><span class="compromiso" id="lug">${lugaresPromo ?? P.lugares}</span><span class="fila-s">de ${P.lugares}</span><button class="btn btn-linea" data-lug="1" type="button" aria-label="Agregar un lugar">+</button></div>` : ''}</div>`
+      : sig ? `<div class="tarjeta"><p class="eyebrow">Próxima promoción</p><p class="h3" style="margin:6px 0 0">${esc(etiquetaOferta(sig.id))}</p><p class="suave" style="margin:6px 0 0">Aparece sola en tu landing el ${diaL(sig.inicio)}.</p></div>` : ''}
     ${repetidas ? `<p class="suave" style="margin:0">Hay ${repetidas} aplicaciones repetidas: la misma persona aplicó más de una vez. Al abrir una, ves las demás y puedes quedarte solo con la que quieras.</p>` : ''}
     <section><p class="eyebrow">Nuevas · ${nuevas.length}</p>${nuevas.map(tarjeta).join('') || vacio('Sin aplicaciones nuevas', 'Cuando alguien aplique en tu landing aparecerá aquí y te llegará por correo.')}</section>
     ${resto.length ? `<section><p class="eyebrow">Revisadas</p>${resto.map(tarjeta).join('')}</section>` : ''}
@@ -237,8 +265,8 @@ async function vistaAplicaciones(v) {
           <button class="link link-peligro" data-borrar-c="${k.id}">Borrar</button></div></div>`).join('')}</section>` : ''}`;
   $$('[data-ver]', v).forEach(b => b.onclick = () => { const a = apps.find(x => x.id === b.dataset.ver); detalleAplicacion(a, otras(a), esMiembro(a)); });
   $$('[data-lug]', v).forEach(b => b.onclick = async () => {
-    const n = Math.max(0, Math.min(P.lugaresTotales, Number($('#lug', v).textContent) + Number(b.dataset.lug)));
-    try { await db.guardarPromoLugares(n); $('#lug', v).textContent = n; aviso(n ? `La landing muestra ${n} lugar${n === 1 ? '' : 'es'}` : 'Promoción agotada: ya no aparece en la landing'); }
+    const n = Math.max(0, Math.min(P.lugares, Number($('#lug', v).textContent) + Number(b.dataset.lug)));
+    try { await db.guardarPromoLugares(claveLugares(P), n); $('#lug', v).textContent = n; aviso(n ? `La landing muestra ${n} lugar${n === 1 ? '' : 'es'}` : 'Promoción agotada: ya no aparece en la landing'); }
     catch { aviso('No se pudo guardar.', 'error'); }
   });
   $$('[data-wa]', v).forEach(b => b.addEventListener('click', async () => { const k = contactos.find(x => x.id === b.dataset.wa); if (k.estado === 'nuevo') { await db.marcarContacto(k.id, 'contactado'); actualizarCuentas(); setTimeout(enrutar, 400); } }));
@@ -268,7 +296,8 @@ function detalleAplicacion(a, otras = [], yaMiembro = false) {
     <div><p class="eyebrow">${fecha(a.created_at, { day: 'numeric', month: 'long' })} · ${esc(a.ciudad || '')} · ${esc(a.edad || '')} años</p><h2 class="h2">${esc(a.nombre)}</h2>
       <p class="suave" style="margin:8px 0 0">${esc(a.correo)} · ${esc(a.whatsapp || '')}</p></div>
     ${yaMiembro ? '<p class="chip chip-ok" style="align-self:flex-start;margin:0">Esta persona ya es miembro de tu equipo</p>' : ''}
-    ${a.oferta === 'black_friday_25' ? '<p class="chip chip-alerta" style="align-self:flex-start;margin:0">Aplicó con la oferta Black Friday · −25%</p>' : ''}
+    ${a.oferta ? `<p class="chip chip-alerta" style="align-self:flex-start;margin:0">Aplicó con ${esc(etiquetaOferta(a.oferta))}</p>` : ''}
+    ${a.detalle_oferta ? `<div class="tarjeta" style="padding:14px"><p class="eyebrow">${esc(oferta(a.oferta)?.campo || (oferta(a.oferta)?.tipo === 'regalo' ? 'Para quién es el regalo' : 'Dato de la promoción'))}</p><p style="margin:6px 0 0">${esc(a.detalle_oferta)}</p></div>` : ''}
     ${ordenadas.length ? `<div class="repetidas"><p class="eyebrow" style="color:#e3b341">También aplicó ${ordenadas.length === 1 ? 'otra vez' : ordenadas.length + ' veces más'}</p>
       ${ordenadas.map(o => `<div class="repetida"><span>${fecha(o.created_at, { day: 'numeric', month: 'short', year: 'numeric' })} · ${esc(o.plan)} · compromiso ${o.compromiso}/10 · ${esc(o.estado || 'nueva')}</span>
         <button class="link" type="button" data-otra="${o.id}">Ver</button></div>`).join('')}
@@ -548,25 +577,39 @@ async function panelPagos(p, m) {
   const [pagos, cobro] = await Promise.all([db.pagos(m.id), db.ajustesCobro()]);
   const e = estadoPago(m, cobro.gracia);
   const f = iso => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('es-GT', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-  const precios = PRECIOS[m.plan] || { 1: '' };
+  const primerPago = pagos.length === 0;
+  const extra = cobroSugerido(m, 1, primerPago).mesesExtra;
+  const opciones = [...new Set([1, 3, ...(extra ? [3 + extra] : []), 6])].sort((a, b) => a - b);
   const texto = { sin: 'Aún no registras pagos. Sin fecha de vencimiento, la app no le muestra avisos.', al_dia: `Al día. Le quedan ${e.dias} días.`,
     por_vencer: e.dias === 0 ? 'Vence hoy. Ya ve un aviso en su inicio.' : `Vence en ${e.dias} días. Ya ve un aviso en su inicio.`,
     gracia: `Vencido hace ${e.vencido} día${e.vencido === 1 ? '' : 's'}. Ve la ventana de pago al abrir la app. Su acceso se pausa en ${e.quedan} día${e.quedan === 1 ? '' : 's'}.`,
     bloqueado: `Vencido hace ${e.vencido} días. Su acceso está en pausa: ve la pantalla de pago y no puede abrir su plan.` }[e.tipo];
+  const toca = cobroSugerido(m, 1, primerPago);
   p.innerHTML = `
     <div class="tarjeta" style="max-width:640px;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-        <div><p class="eyebrow">Pagado hasta</p><p class="h2" style="margin:4px 0 0">${f(m.pagado_hasta)}</p></div>
+        <div><p class="eyebrow">${primerPago ? 'Primer cobro' : 'Próximo cobro · ' + f(m.pagado_hasta)}</p><p class="h2" style="margin:4px 0 0">Le toca ${q(toca.monto)}</p>
+          <p class="suave" style="margin:6px 0 0">${esc(toca.detalle)}${primerPago && m.primer_mes !== null && m.primer_mes !== undefined ? `. Desde el segundo mes: ${q(tarifaDe(m))}.` : ''}</p></div>
         <div class="chips">${chipPago(e) || '<span class="chip chip-ok">Al día</span>'}</div></div>
       <p class="suave" style="margin:0">${texto}</p>
     </div>
+    <form class="tarjeta form" id="f-tarifa" style="max-width:640px">
+      <div><p class="eyebrow">Lo que paga · plan ${esc(m.plan || '')}</p><h2 class="h2">${q(tarifaDe(m))} al mes${m.tarifa_etiqueta ? ` <span class="chip" style="vertical-align:middle">${esc(m.tarifa_etiqueta)}</span>` : ''}</h2>
+        ${!tarifaPactada(m) ? `<p class="chip chip-ambar" style="margin:8px 0 0;display:inline-block">Precio de lista sin confirmar. Guárdalo para fijarlo.</p>` : ''}
+        ${m.oferta ? `<p class="suave" style="margin:8px 0 0">Entró con ${esc(etiquetaOferta(m.oferta))}.</p>` : ''}</div>
+      <div class="grid3"><label>Al mes (Q)<input name="tarifa" type="number" min="0" step="0.01" required value="${tarifaDe(m)}"></label>
+        <label>Primer mes (Q)<input name="primer_mes" type="number" min="0" step="0.01" placeholder="Igual" value="${m.primer_mes ?? ''}" ${primerPago ? '' : 'disabled title="Ya pagó su primer mes"'}></label>
+        <label>Etiqueta<input name="tarifa_etiqueta" maxlength="60" placeholder="Precio fundador" value="${esc(m.tarifa_etiqueta || '')}"></label></div>
+      <button class="btn btn-linea" type="submit">Guardar lo que paga</button>
+    </form>
     <form class="tarjeta form" id="f-pago" style="max-width:640px">
       <div><p class="eyebrow">Plan ${esc(m.plan || '')}</p><h2 class="h2">Registrar pago</h2></div>
       <div class="grid3">
-        <label>Meses que cubre<select name="meses">${[1, 3, 6].map(n => `<option value="${n}">${n} ${n === 1 ? 'mes' : 'meses'}</option>`).join('')}</select></label>
-        <label>Monto (Q)<input name="monto" type="number" min="0" step="0.01" value="${precios[1] ?? ''}"></label>
+        <label>Meses que cubre<select name="meses">${opciones.map(n => `<option value="${n}">${n} ${n === 1 ? 'mes' : 'meses'}</option>`).join('')}</select></label>
+        <label>Monto (Q)<input name="monto" type="number" min="0" step="0.01"></label>
         <label>Método<select name="metodo">${['Transferencia', 'Depósito', 'Efectivo', 'Tarjeta', 'Otro'].map(x => `<option>${x}</option>`).join('')}</select></label>
       </div>
+      <p class="suave" style="font-size:14px;margin:0" id="sug"></p>
       <label>Nota (opcional)<input name="nota" placeholder="Número de comprobante, banco…"></label>
       <p class="tenue" style="font-size:13px;margin:0" id="cubre"></p>
       <button class="btn btn-rojo" type="submit">Registrar pago</button>
@@ -578,11 +621,23 @@ async function panelPagos(p, m) {
       ${pagos.length ? `<div class="lista">${pagos.map(x => `<div class="fila"><div class="fila-cuerpo"><p class="fila-t">Q${Number(x.monto || 0).toLocaleString('es-GT')} · ${x.meses} ${x.meses === 1 ? 'mes' : 'meses'}</p>
         <p class="fila-s">${f(x.fecha)} · ${esc(x.metodo || '')}${x.nota ? ' · ' + esc(x.nota) : ''} · cubre hasta ${f(x.cubre_hasta)}</p></div></div>`).join('')}</div>` : '<p class="tenue">Sin pagos registrados.</p>'}
     </div>`;
+  const ft = $('#f-tarifa', p);
+  ft.onsubmit = async ev => {
+    ev.preventDefault(); const x = datosForm(ev.target);
+    const cambios = { tarifa: Number(x.tarifa), tarifa_etiqueta: (x.tarifa_etiqueta || '').trim() || null };
+    if (primerPago) cambios.primer_mes = x.primer_mes === '' || x.primer_mes === undefined ? null : Number(x.primer_mes);
+    try { await db.actualizarMiembro(m.id, cambios); Object.assign(m, cambios); aviso('Guardado'); panelPagos(p, m); }
+    catch { aviso('No se pudo guardar.', 'error'); }
+  };
   const fp = $('#f-pago', p);
   const calc = () => {
-    const meses = Number(fp.meses.value); if (precios[meses] !== undefined) fp.monto.value = precios[meses]; else if (precios[1]) fp.monto.value = precios[1] * meses;
-    const hoy = hoyISO(); const base = new Date(((m.pagado_hasta && m.pagado_hasta > hoy) ? m.pagado_hasta : hoy) + 'T12:00:00');
-    base.setMonth(base.getMonth() + meses); $('#cubre', p).textContent = 'Quedará pagado hasta el ' + base.toLocaleDateString('es-GT', { day: 'numeric', month: 'long', year: 'numeric' }) + '.';
+    const meses = Number(fp.meses.value);
+    const base = extra && primerPago && meses === 3 + extra ? 3 : meses;
+    const c = cobroSugerido(m, base, primerPago);
+    fp.monto.value = c.monto;
+    $('#sug', p).innerHTML = `Le toca <b>${q(c.monto)}</b>: ${esc(c.detalle)}.` + (extra && primerPago ? ` <b>${esc(etiquetaOferta(m.oferta))}:</b> si paga 3 meses, registra ${3 + extra}.` : '');
+    const hoy = hoyISO(); const d = new Date(((m.pagado_hasta && m.pagado_hasta > hoy) ? m.pagado_hasta : hoy) + 'T12:00:00');
+    d.setMonth(d.getMonth() + meses); $('#cubre', p).textContent = 'Quedará pagado hasta el ' + d.toLocaleDateString('es-GT', { day: 'numeric', month: 'long', year: 'numeric' }) + '.';
   };
   fp.meses.onchange = calc; calc();
   fp.onsubmit = async ev => {
@@ -592,6 +647,48 @@ async function panelPagos(p, m) {
   };
   $('#f-fecha', p).onsubmit = async ev => { ev.preventDefault(); const v = datosForm(ev.target).pagado_hasta || null; await db.actualizarMiembro(m.id, { pagado_hasta: v }); m.pagado_hasta = v; aviso('Fecha actualizada'); panelPagos(p, m); };
   $('#sin-control', p).onclick = async () => { await db.actualizarMiembro(m.id, { pagado_hasta: null }); m.pagado_hasta = null; aviso('Control de pago desactivado para este miembro'); panelPagos(p, m); };
+}
+
+/* --------------------------------------------------------------- Cobros */
+async function vistaCobros(v) {
+  const [miembros, pagos, cobro] = await Promise.all([db.miembros(), db.pagosTodos(), db.ajustesCobro()]);
+  const nPagos = id => pagos.filter(x => x.miembro_id === id).length;
+  const hoy = hoyISO(), mes = hoy.slice(0, 7);
+  const f = iso => new Date(iso + 'T12:00:00').toLocaleDateString('es-GT', { day: 'numeric', month: 'short' });
+  const filas = miembros.map(m => {
+    const e = estadoPago(m, cobro.gracia), primero = nPagos(m.id) === 0, activo = m.estado === 'activo';
+    const c = cobroSugerido(m, 1, primero);
+    const orden = !activo ? 9 : { bloqueado: 0, gracia: 1, sin: 2, por_vencer: 3, al_dia: 4 }[e.tipo];
+    return { m, e, c, primero, activo, orden };
+  }).sort((a, b) => a.orden - b.orden || String(a.m.pagado_hasta || '').localeCompare(String(b.m.pagado_hasta || '')));
+  const activos = filas.filter(x => x.activo);
+  const mensual = activos.reduce((a, x) => a + tarifaDe(x.m), 0);
+  const pronto = activos.filter(x => x.e.tipo === 'sin' || x.e.tipo === 'por_vencer' || (x.e.tipo === 'al_dia' && x.e.dias <= 7));
+  const vencidos = activos.filter(x => x.e.tipo === 'gracia' || x.e.tipo === 'bloqueado');
+  const cobrado = pagos.filter(x => String(x.fecha).slice(0, 7) === mes).reduce((a, x) => a + Number(x.monto || 0), 0);
+  const sinConfirmar = activos.filter(x => !tarifaPactada(x.m)).length;
+  const cuando = x => !x.activo ? '<span class="tenue">No se cobra</span>'
+    : x.e.tipo === 'sin' ? (x.primero ? '<b>Primer pago</b>' : 'Sin fecha')
+    : x.e.tipo === 'gracia' || x.e.tipo === 'bloqueado' ? `<b style="color:var(--rojo-texto)">Venció el ${f(x.m.pagado_hasta)}</b>`
+    : x.e.tipo === 'por_vencer' ? `<b>${x.e.dias === 0 ? 'Hoy' : f(x.m.pagado_hasta)}</b>` : f(x.m.pagado_hasta);
+  v.innerHTML = `
+    <div class="titulo"><div><p class="eyebrow">Quién paga cuánto</p><h1 class="h1">Cobros</h1></div></div>
+    <div class="cifras-4">
+      <div class="cifra"><span class="num">${q(mensual)}</span><small>Ingreso mensual de ${activos.length} activo${activos.length === 1 ? '' : 's'}</small></div>
+      <div class="cifra"><span class="num">${q(pronto.reduce((a, x) => a + x.c.monto, 0))}</span><small>Por cobrar en 7 días · ${pronto.length}</small></div>
+      <div class="cifra"><span class="num">${q(vencidos.reduce((a, x) => a + x.c.monto, 0))}</span><small>Vencido · ${vencidos.length}</small></div>
+      <div class="cifra"><span class="num">${q(cobrado)}</span><small>Cobrado este mes</small></div>
+    </div>
+    ${sinConfirmar ? `<p class="suave" style="margin:0"><span class="chip chip-ambar">${sinConfirmar} sin confirmar</span> Aparecen con el precio de lista de su plan. Entra a su ficha y guarda lo que pagan para fijarlo.</p>` : ''}
+    ${filas.length ? `<table class="tabla"><thead><tr><th>Miembro</th><th>Paga al mes</th><th>Próximo cobro</th><th>Le toca</th><th class="col-oculta">Estado</th></tr></thead><tbody>
+      ${filas.map(x => `<tr class="clic" data-id="${x.m.id}" ${x.activo ? '' : 'style="opacity:.5"'}>
+        <td><div class="nombre">${esc(x.m.nombre || x.m.correo)}</div><div class="sub">${esc(x.m.plan || '')}</div></td>
+        <td><div class="nombre">${q(tarifaDe(x.m))}</div><div class="sub">${x.m.tarifa_etiqueta ? esc(x.m.tarifa_etiqueta) : tarifaPactada(x.m) ? '' : 'Lista · sin confirmar'}</div></td>
+        <td>${cuando(x)}</td>
+        <td>${x.activo ? `<div class="nombre">${q(x.c.monto)}</div>${x.primero && x.m.primer_mes !== null && x.m.primer_mes !== undefined ? `<div class="sub">1er mes · ${esc(etiquetaOferta(x.m.oferta) || 'precio especial')}</div>` : ''}` : '—'}</td>
+        <td class="col-oculta"><div class="chips">${x.activo ? (chipPago(x.e) || '<span class="chip chip-ok">Al día</span>') : `<span class="chip">${esc(x.m.estado)}</span>`}</div></td></tr>`).join('')}
+    </tbody></table>` : vacio('Aún no tienes miembros', 'Cuando invites a alguien, aquí verás cuánto paga y cuándo le toca.')}`;
+  $$('tr[data-id]', v).forEach(tr => tr.onclick = () => { location.hash = '#/miembro/' + tr.dataset.id + '/pagos'; });
 }
 
 async function panelPlan(p, m, semSel) {

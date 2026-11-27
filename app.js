@@ -48,6 +48,8 @@
     });
   });
 
+  function nombreOferta(id) { var p = (cfg.promos || []).filter(function (x) { return x.id === id; })[0]; return p ? p.nombre : id; }
+
   function datos() {
     var fd = new FormData(form);
     return {
@@ -68,7 +70,8 @@
       compromiso: parseInt(fd.get('compromiso'), 10),
       plan: fd.get('plan'),
       acepta_compromiso: fd.get('acepta') === 'on',
-      oferta: fd.get('oferta') || null
+      oferta: fd.get('oferta') || null,
+      detalle_oferta: (fd.get('detalle_oferta') || '').trim() || null
     };
   }
 
@@ -105,7 +108,7 @@
   function enviarCorreo(d) {
     if (!cfg.correoAvisos) return Promise.resolve('omitido');
     var cuerpo = Object.assign({
-      _subject: (d.oferta ? '[BLACK FRIDAY] ' : '') + 'Nueva aplicación ' + d.plan + ': ' + d.nombre + ' (compromiso ' + d.compromiso + '/10)',
+      _subject: (d.oferta ? '[' + nombreOferta(d.oferta).toUpperCase() + '] ' : '') + 'Nueva aplicación ' + d.plan + ': ' + d.nombre + ' (compromiso ' + d.compromiso + '/10)',
       _template: 'table',
       _captcha: 'false',
       _replyto: d.correo

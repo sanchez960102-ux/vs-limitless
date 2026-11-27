@@ -78,7 +78,8 @@ function linkWhatsApp() {
 }
 function bloqueComoPagar() {
   const wa = linkWhatsApp();
-  return `${cobro?.instrucciones ? `<div class="nota-vic"><span class="nota-vic-firma" aria-hidden="true">VS</span><div><small>Cómo pagar</small><p>${esc(cobro.instrucciones)}</p></div></div>` : ''}
+  const monto = yo.tarifa === null || yo.tarifa === undefined ? null : (!yo.pagado_hasta && yo.primer_mes !== null && yo.primer_mes !== undefined ? yo.primer_mes : yo.tarifa);
+  return `${monto !== null ? `<div class="burbuja"><small>Tu mensualidad</small>Q${Number(monto).toLocaleString('es-GT', { maximumFractionDigits: 2 })}</div>` : ''}${cobro?.instrucciones ? `<div class="nota-vic"><span class="nota-vic-firma" aria-hidden="true">VS</span><div><small>Cómo pagar</small><p>${esc(cobro.instrucciones)}</p></div></div>` : ''}
     ${wa ? `<a class="btn btn-full btn-pill btn-rojo" href="${wa}" target="_blank" rel="noopener">Enviar comprobante por WhatsApp</a>` : ''}`;
 }
 function ventanaPago() {

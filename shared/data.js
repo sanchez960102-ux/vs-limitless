@@ -23,6 +23,38 @@ export function diasDesde(iso) { return iso ? Math.floor((Date.now() - new Date(
 
 export const PRECIOS = { Base: { 1: 300 }, Limitless: { 1: 450, 3: 1250 }, 'Élite': { 1: 950, 3: 2650 } };
 
+/* ---------------------------------------------------- Promociones y tarifas */
+export const promos = () => window.VSL_CONFIG?.promos || [];
+export const oferta = id => (id && promos().find(p => p.id === id)) || null;
+export function etiquetaOferta(id) { const o = oferta(id); return o ? o.nombre + (o.descuento ? ` −${o.descuento}%` : '') : id; }
+export const claveLugares = p => p.claveLugares || `promo_${p.id}_lugares`;
+export function promoVigente(ahora = Date.now()) { return promos().find(p => new Date(p.inicio).getTime() <= ahora && new Date(p.termina).getTime() > ahora) || null; }
+export function proximaPromo(ahora = Date.now()) { return promos().filter(p => new Date(p.inicio).getTime() > ahora).sort((a, b) => a.inicio.localeCompare(b.inicio))[0] || null; }
+// Lo que el miembro paga al mes: su tarifa pactada o, si no tiene, el precio de lista de su plan
+export const tarifaDe = m => Number(m?.tarifa ?? PRECIOS[m?.plan]?.[1] ?? 0);
+export const tarifaPactada = m => m?.tarifa !== null && m?.tarifa !== undefined;
+export function precioPrimerMes(plan, idOferta, tarifa) {
+  const o = oferta(idOferta), t = Number(tarifa ?? PRECIOS[plan]?.[1] ?? 0);
+  return o?.descuento ? Math.round(t * (100 - o.descuento)) / 100 : null;
+}
+const q = n => 'Q' + Number(n).toLocaleString('es-GT', { maximumFractionDigits: 2 });
+// Cuánto le toca pagar en este cobro y por qué
+export function cobroSugerido(m, meses = 1, primerPago = false) {
+  const t = tarifaDe(m), lista = PRECIOS[m?.plan] || {};
+  const trimestral = meses === 3 && lista[3] && t === lista[1];
+  let monto = trimestral ? lista[3] : t * meses;
+  const partes = [];
+  const conPrimer = primerPago && m?.primer_mes !== null && m?.primer_mes !== undefined;
+  if (conPrimer) {
+    monto = monto - t + Number(m.primer_mes);
+    partes.push(`${q(m.primer_mes)} el primer mes${m.oferta ? ' por ' + etiquetaOferta(m.oferta) : ''}`);
+    if (meses > 1) partes.push(`${q(monto - Number(m.primer_mes))} por ${meses - 1} mes${meses > 2 ? 'es' : ''} más`);
+  } else if (trimestral) partes.push(`precio trimestral de ${m.plan}: ${q(lista[3])} en vez de ${q(t * 3)}`);
+  else partes.push(meses > 1 ? `${meses} × ${q(t)}` : `${q(t)} al mes${m?.tarifa_etiqueta ? ' · ' + m.tarifa_etiqueta : ''}`);
+  const extra = primerPago && oferta(m?.oferta)?.mesesExtra;
+  return { monto: Math.round(monto * 100) / 100, detalle: partes.join(' + '), mesesExtra: extra || 0 };
+}
+
 const fechaLocal = iso => { const [a, m, d] = iso.split('-').map(Number); return new Date(a, m - 1, d); };
 const isoLocal = f => `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
 export function sumarDias(iso, n) { const f = fechaLocal(iso); f.setDate(f.getDate() + n); return isoLocal(f); }
@@ -126,14 +158,15 @@ async function crearSupabase() {
     async aplicaciones() { return ok(await sb.from('aplicaciones').select('*').order('created_at', { ascending: false })); },
     async marcarAplicacion(id, estado) { ok(await sb.from('aplicaciones').update({ estado }).eq('id', id)); },
     async borrarAplicaciones(ids) { if (ids.length) ok(await sb.from('aplicaciones').delete().in('id', ids)); },
-    async promoLugares() { const f = ok(await sb.from('ajustes').select('valor').eq('clave', 'promo_bf_lugares').maybeSingle()); return f ? Number(f.valor) : null; },
-    async guardarPromoLugares(n) { ok(await sb.from('ajustes').upsert({ clave: 'promo_bf_lugares', valor: String(n) })); },
+    async promoLugares(clave) { const f = ok(await sb.from('ajustes').select('valor').eq('clave', clave).maybeSingle()); return f ? Number(f.valor) : null; },
+    async guardarPromoLugares(clave, n) { ok(await sb.from('ajustes').upsert({ clave, valor: String(n) })); },
+    async pagosTodos() { return ok(await sb.from('pagos').select('miembro_id, fecha, monto, meses').order('fecha', { ascending: false })); },
     async contactos() { return ok(await sb.from('contactos').select('*').order('created_at', { ascending: false })); },
     async marcarContacto(id, estado) { ok(await sb.from('contactos').update({ estado }).eq('id', id)); },
     async borrarContacto(id) { ok(await sb.from('contactos').delete().eq('id', id)); },
     async invitaciones() { return ok(await sb.from('invitaciones').select('*').order('created_at', { ascending: false })); },
-    async invitar({ correo, nombre, plan, objetivo, aplicacion_id }) {
-      return ok(await sb.from('invitaciones').insert({ correo: correo.trim().toLowerCase(), nombre, plan, objetivo, aplicacion_id }).select().single());
+    async invitar({ correo, nombre, plan, objetivo, aplicacion_id, tarifa = null, tarifa_etiqueta = null, primer_mes = null, oferta = null }) {
+      return ok(await sb.from('invitaciones').insert({ correo: correo.trim().toLowerCase(), nombre, plan, objetivo, aplicacion_id, tarifa, tarifa_etiqueta, primer_mes, oferta }).select().single());
     },
     async bloques(miembroId) { return ok(await sb.from('bloques').select('*').eq('miembro_id', miembroId).order('fecha_inicio', { ascending: false })); },
     async crearBloque(datos) {
@@ -227,10 +260,11 @@ function crearDemo() {
   const iso = d => d.toISOString().slice(0, 10);
 
   const coach = { id: 'coach', correo: 'laf.victor.sanchez@gmail.com', nombre: 'Vic Sánchez', rol: 'coach', created_at: hace(30) };
-  const ana = { id: 'ana', correo: 'ana@ejemplo.com', nombre: 'Ana López', rol: 'miembro', plan: 'Limitless', estado: 'activo', pagado_hasta: iso(new Date(Date.now() - 2 * 86400000)), objetivo: 'Correr mis primeros 10K en abril', created_at: hace(20) };
+  const ana = { id: 'ana', correo: 'ana@ejemplo.com', nombre: 'Ana López', rol: 'miembro', plan: 'Limitless', estado: 'activo', tarifa: 450, tarifa_etiqueta: 'Precio fundador', pagado_hasta: iso(new Date(Date.now() - 2 * 86400000)), objetivo: 'Correr mis primeros 10K en abril', created_at: hace(20) };
   const luis = { id: 'luis', correo: 'luis@ejemplo.com', nombre: 'Luis Méndez', rol: 'miembro', plan: 'Base', estado: 'activo', pagado_hasta: iso(new Date(Date.now() + 18 * 86400000)), objetivo: 'Ganar músculo', created_at: hace(12) };
   const db = {
-    perfiles: [coach, ana, luis],
+    perfiles: [coach, ana, luis,
+      { id: 'sofia', correo: 'sofia@ejemplo.com', nombre: 'Sofía Ramírez', rol: 'miembro', plan: 'Base', estado: 'activo', tarifa: 300, primer_mes: 225, oferta: 'black_friday_25', pagado_hasta: null, objetivo: 'Bajar grasa y correr 5K', created_at: hace(2) }],
     bloques: [{ id: 'b1', miembro_id: 'ana', nombre: 'Bloque 1 · Base aeróbica + fuerza', fecha_inicio: iso(iniBloque), semanas: 4, notas: 'Construir base sin lesionarse.', activo: true, created_at: hace(14) }],
     sesiones: [], items: [], registros: [], checkins: [], videos: [], invitaciones: [],
     tests: [
@@ -356,8 +390,9 @@ function crearDemo() {
     async aplicaciones() { return espera([...db.aplicaciones].sort((a, b) => b.created_at.localeCompare(a.created_at))); },
     async marcarAplicacion(id, estado) { db.aplicaciones.find(a => a.id === id).estado = estado; },
     async borrarAplicaciones(ids) { db.aplicaciones = db.aplicaciones.filter(a => !ids.includes(a.id)); return espera(); },
-    async promoLugares() { return espera(db.promoLugares ?? 4); },
-    async guardarPromoLugares(n) { db.promoLugares = n; return espera(); },
+    async promoLugares(clave) { return espera((db.lugares || {})[clave] ?? null); },
+    async guardarPromoLugares(clave, n) { (db.lugares ||= {})[clave] = n; return espera(); },
+    async pagosTodos() { return espera(db.pagos.map(({ miembro_id, fecha, monto, meses }) => ({ miembro_id, fecha, monto, meses }))); },
     async contactos() { return espera([...db.contactos]); },
     async marcarContacto(id, estado) { db.contactos.find(c => c.id === id).estado = estado; return espera(); },
     async borrarContacto(id) { db.contactos = db.contactos.filter(c => c.id !== id); return espera(); },
@@ -365,7 +400,7 @@ function crearDemo() {
     async invitar(d) {
       const inv = { id: uuid(), usada: true, created_at: new Date().toISOString(), ...d };
       db.invitaciones.push(inv);
-      db.perfiles.push({ id: uuid(), correo: d.correo, nombre: d.nombre, rol: 'miembro', plan: d.plan, estado: 'activo', objetivo: d.objetivo, created_at: new Date().toISOString() });
+      db.perfiles.push({ id: uuid(), correo: d.correo, nombre: d.nombre, rol: 'miembro', plan: d.plan, estado: 'activo', objetivo: d.objetivo, tarifa: d.tarifa ?? null, tarifa_etiqueta: d.tarifa_etiqueta ?? null, primer_mes: d.primer_mes ?? null, oferta: d.oferta ?? null, created_at: new Date().toISOString() });
       return espera(inv);
     },
     async bloques(mid) { return espera(db.bloques.filter(b => b.miembro_id === mid)); },
