@@ -201,7 +201,9 @@ function mismaPersona(a, b) {
 }
 
 async function vistaAplicaciones(v) {
-  const [apps, miembros, contactos] = await Promise.all([db.aplicaciones(), db.miembros().catch(() => []), db.contactos().catch(() => [])]);
+  const [apps, miembros, contactos, lugaresPromo] = await Promise.all([db.aplicaciones(), db.miembros().catch(() => []), db.contactos().catch(() => []), db.promoLugares().catch(() => null)]);
+  const P = window.VSL_CONFIG?.promo;
+  const promoActiva = P && new Date(P.termina).getTime() > Date.now();
   const otras = a => apps.filter(b => mismaPersona(a, b));
   const esMiembro = a => miembros.some(m => correoN(m.correo) === correoN(a.correo));
   const nuevas = apps.filter(a => (a.estado || 'nueva') === 'nueva');
@@ -209,13 +211,17 @@ async function vistaAplicaciones(v) {
   const repetidas = apps.filter(a => otras(a).length).length;
   const tarjeta = a => { const o = otras(a).length; return `<div class="app-card" data-id="${a.id}">
     <div><p class="fila-t">${esc(a.nombre)} <span class="chip" style="margin-left:6px">${esc(a.plan)}</span>${a.estado && a.estado !== 'nueva' ? ` <span class="chip ${a.estado === 'aceptada' ? 'chip-ok' : ''}">${esc(a.estado)}</span>` : ''}
-      ${o ? ` <span class="chip chip-ambar">Repetida · ${o + 1} veces</span>` : ''}${esMiembro(a) ? ' <span class="chip chip-ok">Ya es miembro</span>' : ''}</p>
+      ${o ? ` <span class="chip chip-ambar">Repetida · ${o + 1} veces</span>` : ''}${a.oferta === 'black_friday_25' ? ' <span class="chip chip-alerta">Black Friday −25%</span>' : ''}${esMiembro(a) ? ' <span class="chip chip-ok">Ya es miembro</span>' : ''}</p>
       <p class="suave" style="margin:6px 0 0">${esc(a.meta || a.objetivo)}</p>
       <div class="meta"><span>${hace(a.created_at)}</span><span>${esc(a.ciudad || '')}</span><span>${esc(a.nivel || '')}</span><span>${esc(a.dias || '?')} días/sem</span></div></div>
     <div style="display:flex;align-items:center;gap:16px"><div style="text-align:right"><span class="compromiso" style="color:${a.compromiso >= 8 ? 'var(--tinta)' : a.compromiso >= 6 ? '#e3b341' : 'var(--rojo-texto)'}">${a.compromiso}/10</span><div class="fila-s">compromiso</div></div>
       <button class="btn btn-sm btn-linea" data-ver="${a.id}">Ver</button></div></div>`; };
   v.innerHTML = `
     <div class="titulo"><div><p class="eyebrow">Desde tu landing</p><h1 class="h1">Aplicaciones</h1></div></div>
+    ${promoActiva ? `<div class="tarjeta promo-panel"><div><p class="eyebrow" style="color:#ff8a80">${esc(P.nombre)} · −${P.descuento}% · termina el ${new Date(P.termina).toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+        <p class="h3" style="margin:6px 0 0">Lugares que muestra tu landing</p>
+        <p class="suave" style="margin:6px 0 0">Bájalo cada vez que cierres una venta con la oferta. En 0, la promoción desaparece de la página.</p></div>
+      <div class="promo-ctl"><button class="btn btn-linea" data-lug="-1" type="button" aria-label="Quitar un lugar">−</button><span class="compromiso" id="lug">${lugaresPromo ?? P.lugaresTotales}</span><span class="fila-s">de ${P.lugaresTotales}</span><button class="btn btn-linea" data-lug="1" type="button" aria-label="Agregar un lugar">+</button></div></div>` : ''}
     ${repetidas ? `<p class="suave" style="margin:0">Hay ${repetidas} aplicaciones repetidas: la misma persona aplicó más de una vez. Al abrir una, ves las demás y puedes quedarte solo con la que quieras.</p>` : ''}
     <section><p class="eyebrow">Nuevas · ${nuevas.length}</p>${nuevas.map(tarjeta).join('') || vacio('Sin aplicaciones nuevas', 'Cuando alguien aplique en tu landing aparecerá aquí y te llegará por correo.')}</section>
     ${resto.length ? `<section><p class="eyebrow">Revisadas</p>${resto.map(tarjeta).join('')}</section>` : ''}
@@ -230,6 +236,11 @@ async function vistaAplicaciones(v) {
           ${k.estado !== 'descartado' ? `<button class="btn btn-sm btn-linea" data-descartar-c="${k.id}">Descartar</button>` : ''}
           <button class="link link-peligro" data-borrar-c="${k.id}">Borrar</button></div></div>`).join('')}</section>` : ''}`;
   $$('[data-ver]', v).forEach(b => b.onclick = () => { const a = apps.find(x => x.id === b.dataset.ver); detalleAplicacion(a, otras(a), esMiembro(a)); });
+  $$('[data-lug]', v).forEach(b => b.onclick = async () => {
+    const n = Math.max(0, Math.min(P.lugaresTotales, Number($('#lug', v).textContent) + Number(b.dataset.lug)));
+    try { await db.guardarPromoLugares(n); $('#lug', v).textContent = n; aviso(n ? `La landing muestra ${n} lugar${n === 1 ? '' : 'es'}` : 'Promoción agotada: ya no aparece en la landing'); }
+    catch { aviso('No se pudo guardar.', 'error'); }
+  });
   $$('[data-wa]', v).forEach(b => b.addEventListener('click', async () => { const k = contactos.find(x => x.id === b.dataset.wa); if (k.estado === 'nuevo') { await db.marcarContacto(k.id, 'contactado'); actualizarCuentas(); setTimeout(enrutar, 400); } }));
   $$('[data-descartar-c]', v).forEach(b => b.onclick = async () => { await db.marcarContacto(b.dataset.descartarC, 'descartado'); actualizarCuentas(); enrutar(); });
   $$('[data-borrar-c]', v).forEach(b => b.onclick = () => dialogo(`<div class="menu-hoja"><p class="eyebrow">Contactos</p><h2 class="h2">¿Borrar este contacto?</h2>
@@ -257,6 +268,7 @@ function detalleAplicacion(a, otras = [], yaMiembro = false) {
     <div><p class="eyebrow">${fecha(a.created_at, { day: 'numeric', month: 'long' })} · ${esc(a.ciudad || '')} · ${esc(a.edad || '')} años</p><h2 class="h2">${esc(a.nombre)}</h2>
       <p class="suave" style="margin:8px 0 0">${esc(a.correo)} · ${esc(a.whatsapp || '')}</p></div>
     ${yaMiembro ? '<p class="chip chip-ok" style="align-self:flex-start;margin:0">Esta persona ya es miembro de tu equipo</p>' : ''}
+    ${a.oferta === 'black_friday_25' ? '<p class="chip chip-alerta" style="align-self:flex-start;margin:0">Aplicó con la oferta Black Friday · −25%</p>' : ''}
     ${ordenadas.length ? `<div class="repetidas"><p class="eyebrow" style="color:#e3b341">También aplicó ${ordenadas.length === 1 ? 'otra vez' : ordenadas.length + ' veces más'}</p>
       ${ordenadas.map(o => `<div class="repetida"><span>${fecha(o.created_at, { day: 'numeric', month: 'short', year: 'numeric' })} · ${esc(o.plan)} · compromiso ${o.compromiso}/10 · ${esc(o.estado || 'nueva')}</span>
         <button class="link" type="button" data-otra="${o.id}">Ver</button></div>`).join('')}

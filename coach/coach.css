@@ -184,3 +184,6 @@ input,select,textarea{background:rgba(10,10,12,.45)!important;border-color:rgba(
 .repetida{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:13px;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)}
 .repetida:first-of-type{border-top:0}
 .app-card.contacto.descartado{opacity:.55}
+.promo-panel{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;border-color:rgba(255,90,80,.5)!important}
+.promo-ctl{display:flex;align-items:center;gap:12px}
+.promo-ctl .btn{width:48px;height:48px;padding:0;font-size:22px}

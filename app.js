@@ -67,7 +67,8 @@
       semana_mala: fd.get('semana_mala').trim(),
       compromiso: parseInt(fd.get('compromiso'), 10),
       plan: fd.get('plan'),
-      acepta_compromiso: fd.get('acepta') === 'on'
+      acepta_compromiso: fd.get('acepta') === 'on',
+      oferta: fd.get('oferta') || null
     };
   }
 
@@ -104,7 +105,7 @@
   function enviarCorreo(d) {
     if (!cfg.correoAvisos) return Promise.resolve('omitido');
     var cuerpo = Object.assign({
-      _subject: 'Nueva aplicación ' + d.plan + ': ' + d.nombre + ' (compromiso ' + d.compromiso + '/10)',
+      _subject: (d.oferta ? '[BLACK FRIDAY] ' : '') + 'Nueva aplicación ' + d.plan + ': ' + d.nombre + ' (compromiso ' + d.compromiso + '/10)',
       _template: 'table',
       _captcha: 'false',
       _replyto: d.correo
