@@ -25,7 +25,7 @@
     // 1. Franja superior con cuenta regresiva
     var barra = document.createElement('a');
     barra.className = 'promo-barra'; barra.href = '#planes';
-    barra.innerHTML = '<span class="pb-fuerte">' + P.nombre + '</span><span class="pb-sep">·</span><span>Coach + app desde ' + fmt(minimo) + '</span>' +
+    barra.innerHTML = '<span class="pb-fuerte">' + P.nombre + '</span><span class="pb-sep">·</span><span>Tu primer mes desde ' + fmt(minimo) + '</span>' +
       '<span class="pb-sep">·</span><span class="pb-lugares">' + txtLugares + '</span><span class="pb-sep pb-ocultar">·</span>' +
       '<span class="pb-reloj pb-ocultar">Termina en <b data-cuenta>' + restante() + '</b></span>';
     document.body.prepend(barra);
@@ -35,13 +35,13 @@
     if (hero) {
       var sello = document.createElement('a');
       sello.className = 'promo-sello'; sello.href = '#planes';
-      sello.setAttribute('aria-label', P.nombre + ': desde ' + fmt(minimo) + ', antes ' + fmt(P.precios.Base));
-      sello.innerHTML = '<span class="ps-t">' + P.nombre + '</span><span class="ps-desde">desde</span><span class="ps-precio">' + fmt(minimo) +
+      sello.setAttribute('aria-label', P.nombre + ': primer mes desde ' + fmt(minimo) + ', antes ' + fmt(P.precios.Base));
+      sello.innerHTML = '<span class="ps-t">' + P.nombre + '</span><span class="ps-desde">1er mes desde</span><span class="ps-precio">' + fmt(minimo) +
         '</span><span class="ps-antes">antes <s>' + fmt(P.precios.Base) + '</s></span><span class="ps-pill">' + txtLugares + '</span>';
       var heroIn = $('.hero-in');
       if (window.matchMedia('(max-width: 900px)').matches && heroIn) heroIn.insertBefore(sello, heroIn.firstChild); else hero.appendChild(sello);
       var kicker = $('.hero .eyebrow, .hero .kicker');
-      if (kicker) kicker.innerHTML = '<span class="punto"></span>' + P.nombre + ' · −' + P.descuento + '% para los primeros ' + P.lugaresTotales;
+      if (kicker) kicker.innerHTML = '<span class="punto"></span>' + P.nombre + ' · −' + P.descuento + '% en tu primer mes · primeros ' + P.lugaresTotales;
       var cta = $('.hero-ctas .btn');
       if (cta) cta.textContent = 'Aprovechar −' + P.descuento + '%';
     }
@@ -51,7 +51,7 @@
     if (planes) {
       var aviso = document.createElement('div');
       aviso.className = 'promo-aviso';
-      aviso.innerHTML = '<div><p class="pa-t">' + P.nombre + ' · −' + P.descuento + '% en cualquier plan</p><p class="pa-s">Coach, plan personalizado y app por menos de Q8 al día. Solo para los primeros ' + P.lugaresTotales + ' en aplicar.</p></div>' +
+      aviso.innerHTML = '<div><p class="pa-t">' + P.nombre + ' · −' + P.descuento + '% en tu primer mes</p><p class="pa-s">En cualquier plan: coach, plan personalizado y app desde ' + fmt(minimo) + ' tu primer mes. Solo para los primeros ' + P.lugaresTotales + ' en aplicar.</p></div>' +
         '<div class="pa-der"><span class="pa-lugares">' + txtLugares + '</span><span class="pa-reloj">Termina en <b data-cuenta>' + restante() + '</b></span></div>';
       planes.parentNode.insertBefore(aviso, planes);
     }
@@ -62,20 +62,26 @@
       if (!btn || !precio || !P.precios[btn.dataset.plan]) return;
       var base = P.precios[btn.dataset.plan];
       var nuevo = conDesc(base), entero = Math.floor(nuevo), cent = Math.round((nuevo - entero) * 100);
-      precio.innerHTML = '<s class="precio-antes">' + fmt(base) + '</s>Q' + entero.toLocaleString('en-US') + (cent ? '<sup class="precio-cent">.' + String(cent).padStart(2, '0') + '</sup>' : '') + '<span>/ mes</span>';
-      var tag = document.createElement('p'); tag.className = 'promo-tag'; tag.textContent = '−' + P.descuento + '% ' + P.nombre;
+      precio.innerHTML = '<s class="precio-antes">' + fmt(base) + '</s>Q' + entero.toLocaleString('en-US') + (cent ? '<sup class="precio-cent">.' + String(cent).padStart(2, '0') + '</sup>' : '') + '<span>1er mes</span>';
+      var tag = document.createElement('p'); tag.className = 'promo-tag'; tag.textContent = '−' + P.descuento + '% tu primer mes';
       precio.parentNode.insertBefore(tag, precio);
+      var nota = art.querySelector('.precio-nota');
+      var txt = btn.dataset.plan === 'Limitless'
+        ? 'Desde el segundo mes pagas ' + fmt(base) + ', tu precio fundador, que se queda contigo mientras sigas activo.'
+        : 'Desde el segundo mes: ' + fmt(base) + ' al mes.';
+      if (nota && btn.dataset.plan === 'Limitless') nota.textContent = txt;
+      else { var n2 = document.createElement('p'); n2.className = 'precio-nota promo-despues'; n2.textContent = txt; precio.parentNode.insertBefore(n2, precio.nextSibling); }
       art.classList.add('con-oferta');
     });
     document.querySelectorAll('input[name="plan"]').forEach(function (r) {
       var base = P.precios[r.value]; if (!base) return;
-      var s = r.parentNode.querySelector('span'); if (s) s.innerHTML = r.value + ' · ' + fmt(conDesc(base)) + ' <s>' + fmt(base) + '</s>';
+      var s = r.parentNode.querySelector('span'); if (s) s.innerHTML = r.value + ' · ' + fmt(conDesc(base)) + ' 1er mes <s>' + fmt(base) + '</s>';
     });
     var form = document.getElementById('form');
     if (form && !form.querySelector('[name="oferta"]')) {
       var h = document.createElement('input'); h.type = 'hidden'; h.name = 'oferta'; h.value = P.id; form.appendChild(h);
       var nota = document.createElement('p'); nota.className = 'promo-form';
-      nota.innerHTML = '<b>' + P.nombre + ' aplicado:</b> −' + P.descuento + '% si quedas entre los primeros ' + P.lugaresTotales + '.';
+      nota.innerHTML = '<b>' + P.nombre + ' aplicado:</b> −' + P.descuento + '% en tu primer mes si quedas entre los primeros ' + P.lugaresTotales + '. Desde el segundo mes pagas el precio normal de tu plan.';
       var btnEnviar = form.querySelector('[type=submit]'); if (btnEnviar) btnEnviar.parentNode.insertBefore(nota, btnEnviar);
     }
 

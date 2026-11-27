@@ -355,3 +355,4 @@ body.con-promo .top{top:38px}
 @media (max-width:640px){.promo-barra{font-size:10px;gap:6px;letter-spacing:.08em}.promo-barra .pb-ocultar{display:none}.pa-der{align-items:flex-start}}
 .plan .promo-tag{align-self:flex-start}
 .precio .precio-cent{font-size:.42em;vertical-align:top;line-height:1.1;margin-left:2px}
+.ps-desde{font-size:17px}@media (max-width:900px){.ps-desde{font-size:13px}}
