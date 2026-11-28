@@ -260,7 +260,7 @@ function crearDemo() {
   const iso = d => d.toISOString().slice(0, 10);
 
   const coach = { id: 'coach', correo: 'laf.victor.sanchez@gmail.com', nombre: 'Vic Sánchez', rol: 'coach', created_at: hace(30) };
-  const ana = { id: 'ana', correo: 'ana@ejemplo.com', nombre: 'Ana López', rol: 'miembro', plan: 'Limitless', estado: 'activo', tarifa: 450, tarifa_etiqueta: 'Precio fundador', numero: 7, pagado_hasta: iso(new Date(Date.now() - 2 * 86400000)), objetivo: 'Correr mis primeros 10K en abril', created_at: hace(20) };
+  const ana = { id: 'ana', correo: 'carlos@ejemplo.com', nombre: 'Carlos López', rol: 'miembro', plan: 'Limitless', estado: 'activo', tarifa: 450, tarifa_etiqueta: 'Precio fundador', numero: 7, pagado_hasta: iso(new Date(Date.now() - 2 * 86400000)), objetivo: 'Correr mis primeros 10K en abril', created_at: hace(20) };
   const luis = { id: 'luis', correo: 'luis@ejemplo.com', nombre: 'Luis Méndez', rol: 'miembro', plan: 'Base', estado: 'activo', numero: 9, pagado_hasta: iso(new Date(Date.now() + 18 * 86400000)), objetivo: 'Ganar músculo', created_at: hace(12) };
   const db = {
     perfiles: [coach, ana, luis,
@@ -303,8 +303,8 @@ function crearDemo() {
       { id: 'r4', miembro_id: 'ana', test_id: 't-umbral', item_id: null, valor: 171, detalle: '5,600 m · FC máx 188', fecha: iso(new Date(Date.now() - 17 * 86400000)), created_at: hace(17) },
       { id: 'r3', miembro_id: 'ana', test_id: 't-plancha', item_id: null, valor: 75, detalle: null, fecha: iso(new Date(Date.now() - 18 * 86400000)), created_at: hace(18) }],
     anamnesis: [{ miembro_id: 'ana', paso: 6, completada: true, alerta_salud: true, completada_at: hace(20), revisada_at: null, datos: {
-      nacimiento: '1994-03-12', sexo: 'Mujer', estatura: '163', peso: '64.2', ocupacion: 'Contadora', actividad_laboral: 'Sentado', emergencia_nombre: 'Carlos López (esposo)', emergencia_tel: '+502 5555 0000',
-      parq: ['No', 'No', 'No', 'No', 'No', 'Sí', 'No'], condiciones: ['Ninguna'], medicamentos: 'Ninguno', cirugias: '', embarazo: 'No',
+      nacimiento: '1994-03-12', sexo: 'Hombre', estatura: '168', peso: '64.2', ocupacion: 'Contador', actividad_laboral: 'Sentado', emergencia_nombre: 'Ana López (esposa)', emergencia_tel: '+502 5555 0000',
+      parq: ['No', 'No', 'No', 'No', 'No', 'Sí', 'No'], condiciones: ['Ninguna'], medicamentos: 'Ninguno', cirugias: '', embarazo: '',
       dolor_actual: 'Sí', dolor_zona: ['Rodilla'], dolor_intensidad: 3, dolor_detalle: 'Molestia en la rodilla derecha al bajar gradas después de correr.', lesiones_previas: 'Esguince de tobillo izquierdo en 2021, sin secuelas.',
       sueno: '6 a 7', estres: 4, alimentacion: 'Regular', agua: '1 a 2 L', tabaco: 'No', alcohol: 'Ocasional',
       experiencia: '6 meses a 2 años', actual: '1 a 2 días', deportes: 'Natación en el colegio', marcas: '5K en 31 min', fc_reposo: '68',
