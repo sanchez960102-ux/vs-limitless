@@ -260,11 +260,11 @@ function crearDemo() {
   const iso = d => d.toISOString().slice(0, 10);
 
   const coach = { id: 'coach', correo: 'laf.victor.sanchez@gmail.com', nombre: 'Vic Sánchez', rol: 'coach', created_at: hace(30) };
-  const ana = { id: 'ana', correo: 'ana@ejemplo.com', nombre: 'Ana López', rol: 'miembro', plan: 'Limitless', estado: 'activo', tarifa: 450, tarifa_etiqueta: 'Precio fundador', pagado_hasta: iso(new Date(Date.now() - 2 * 86400000)), objetivo: 'Correr mis primeros 10K en abril', created_at: hace(20) };
-  const luis = { id: 'luis', correo: 'luis@ejemplo.com', nombre: 'Luis Méndez', rol: 'miembro', plan: 'Base', estado: 'activo', pagado_hasta: iso(new Date(Date.now() + 18 * 86400000)), objetivo: 'Ganar músculo', created_at: hace(12) };
+  const ana = { id: 'ana', correo: 'ana@ejemplo.com', nombre: 'Ana López', rol: 'miembro', plan: 'Limitless', estado: 'activo', tarifa: 450, tarifa_etiqueta: 'Precio fundador', numero: 7, pagado_hasta: iso(new Date(Date.now() - 2 * 86400000)), objetivo: 'Correr mis primeros 10K en abril', created_at: hace(20) };
+  const luis = { id: 'luis', correo: 'luis@ejemplo.com', nombre: 'Luis Méndez', rol: 'miembro', plan: 'Base', estado: 'activo', numero: 9, pagado_hasta: iso(new Date(Date.now() + 18 * 86400000)), objetivo: 'Ganar músculo', created_at: hace(12) };
   const db = {
     perfiles: [coach, ana, luis,
-      { id: 'sofia', correo: 'sofia@ejemplo.com', nombre: 'Sofía Ramírez', rol: 'miembro', plan: 'Base', estado: 'activo', tarifa: 300, primer_mes: 225, oferta: 'black_friday_25', pagado_hasta: null, objetivo: 'Bajar grasa y correr 5K', created_at: hace(2) }],
+      { id: 'sofia', correo: 'sofia@ejemplo.com', nombre: 'Sofía Ramírez', rol: 'miembro', plan: 'Base', estado: 'activo', numero: 12, tarifa: 300, primer_mes: 225, oferta: 'black_friday_25', pagado_hasta: null, objetivo: 'Bajar grasa y correr 5K', created_at: hace(2) }],
     bloques: [{ id: 'b1', miembro_id: 'ana', nombre: 'Bloque 1 · Base aeróbica + fuerza', fecha_inicio: iso(iniBloque), semanas: 4, notas: 'Construir base sin lesionarse.', activo: true, created_at: hace(14) }],
     sesiones: [], items: [], registros: [], checkins: [], videos: [], invitaciones: [],
     tests: [

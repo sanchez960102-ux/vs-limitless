@@ -161,6 +161,9 @@ VS Limitless se ve como una revista deportiva cara, no como un gimnasio. El negr
 - **Tarjeta del plan recomendado:** invertida en hueso para que sea la única clara del bloque.
 - **Barra de promoción:** rojo completo, mayúsculas, cuenta regresiva. Solo existe mientras hay una promoción activa.
 - **Formulario:** campos con solo línea inferior, sin cajas. Etiquetas claras arriba.
+- **Arma tu plan:** opciones rectas con borde de 1px; la elegida se invierte en hueso. El resultado vive en un panel fijo con el nombre del plan en Anton grande, el precio y por qué.
+- **Tarjeta de miembro (app):** proporción de tarjeta bancaria, negro con luz roja en la esquina, número en Anton, se inclina con el dedo. Los fundadores llevan sello dorado.
+- **Imagen "Mi semana":** 1080×1920, negro con luz roja y grano fino, cifra principal gigante en Anton, cuatro datos en cuadrícula y @vs_limitless al pie.
 
 ## Sí
 

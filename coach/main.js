@@ -113,7 +113,7 @@ async function vistaMiembros(v) {
     </div>
     ${filas.length ? `<table class="tabla"><thead><tr><th>Miembro</th><th>Plan</th><th>Esta semana</th><th>Última actividad</th><th>Atención</th></tr></thead><tbody>
       ${filas.map(({ m, r }) => `<tr class="clic" data-id="${m.id}">
-        <td><div class="nombre">${esc(m.nombre || m.correo)}</div><div class="sub">${esc(m.objetivo || m.correo)}</div></td>
+        <td><div class="nombre">${esc(m.nombre || m.correo)}</div><div class="sub">${m.numero ? 'N.º ' + String(m.numero).padStart(3, '0') + ' · ' : ''}${esc(m.objetivo || m.correo)}</div></td>
         <td><span class="chip ${m.plan === 'Élite' ? 'chip-claro' : ''}">${esc(m.plan)}</span><div class="sub" style="margin-top:6px">${q(tarifaDe(m))}/mes${m.tarifa_etiqueta ? ' · ' + esc(m.tarifa_etiqueta) : ''}</div></td>
         <td class="col-oculta">${r.adherencia === null ? '<span class="tenue">—</span>' : `<div class="adh"><div class="adh-barra ${r.adherencia < 50 ? 'baja' : ''}"><i style="width:${r.adherencia}%"></i></div><span>${r.hechas}/${r.programadas}</span></div>`}</td>
         <td class="col-oculta tenue">${hace(r.ultima)}</td>

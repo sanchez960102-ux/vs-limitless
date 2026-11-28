@@ -5,6 +5,7 @@ import { formAcceso, pideCrearClave, pantallaCrearClave } from '/shared/acceso.j
 import { PASOS, htmlPaso, leerPaso, alertas, requiereRevisionMedica } from '/shared/anamnesis.js';
 import { htmlCaptura, leerCaptura, formatear, cambio, CATEGORIAS, zonasMiembro, zonaDe, ZONAS } from '/shared/tests.js';
 import { montarMapa } from '/shared/composicion.js';
+import { tarjetaMiembro, activarTarjeta, imagenSemana, compartirImagen, numeroTxt, esFundador } from '/shared/membresia.js';
 import { esDeCarga, claveEjercicio, htmlSeries, leerSeries, sugerencia, texto as textoSeries, resumen as resumenSeries, porEjercicio } from '/shared/cargas.js';
 
 const raiz = $('#raiz');
@@ -13,6 +14,7 @@ let db, yo, bloque, cobro, pago;
 const FOTOS = { fuerza: '/img/app/fuerza.jpg', carrera: '/img/app/carrera.jpg', bici: '/img/app/bici.jpg', movilidad: '/img/app/movilidad.jpg', mixta: '/img/app/movilidad.jpg' };
 const TIPO_TXT = { fuerza: 'Fuerza', carrera: 'Carrera', bici: 'Bici', movilidad: 'Movilidad', mixta: 'Mixta' };
 const ICONOS = {
+  membresia: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M7 14h4M15 10.5h2"/></svg>',
   hoy: '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg>',
   plan: '<svg viewBox="0 0 24 24"><path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11"/></svg>',
   checkin: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>',
@@ -263,7 +265,7 @@ function enrutar() {
   const activa = ruta === 'sesion' ? 'plan' : ruta;
   $$('.nav a').forEach(a => a.dataset.r === activa ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
   const v = $('#vista'); cargando(v); window.scrollTo(0, 0);
-  const vistas = { hoy: vistaHoy, plan: vistaPlan, sesion: vistaSesion, checkin: vistaCheckin, tecnica: vistaTecnica, progreso: vistaProgreso, nutricion: vistaNutricion };
+  const vistas = { membresia: vistaMembresia, hoy: vistaHoy, plan: vistaPlan, sesion: vistaSesion, checkin: vistaCheckin, tecnica: vistaTecnica, progreso: vistaProgreso, nutricion: vistaNutricion };
   if (ruta === 'cuenta') { history.replaceState(null, '', '#/hoy'); $('#perfil').click(); return enrutar(); }
   (vistas[ruta] || vistaHoy)(v, param).then(() => { if (!ruta || ruta === 'hoy') v.insertAdjacentHTML('afterbegin', bandaPago()); }).catch(err => { console.error(err); v.innerHTML = vacio('Algo salió mal', 'Recarga la página o intenta en un momento.'); });
 }
@@ -364,6 +366,7 @@ async function vistaHoy(v) {
         : `<a class="rapido bloqueado" href="#/tecnica"><span class="ico">${ICONOS.candado}</span><span>Subir técnica<small>Disponible en ${planMinimo('tecnicaVideo')} · Mejorar plan</small></span></a>`}
       <a class="rapido" href="#/progreso"><span class="ico hueso">${ICONOS.progreso}</span><span>Mi progreso<small>${regs.filter(r => r.completada).length} sesiones</small></span></a>
     </div>
+    <a class="rapido ancho" href="#/membresia"><span class="ico ${hoyDia === 7 ? 'rojo' : 'hueso'}">${ICONOS.membresia}</span><span>Miembro ${numeroTxt(yo.numero)}${esFundador(yo) ? ' · Fundador' : ''}<small>${hoyDia === 7 ? 'Tu semana está lista para compartir' : 'Tu tarjeta y tu semana en números'}</small></span></a>
     <a class="rapido ancho" href="#/nutricion"><span class="ico hueso">${ICONOS.nutricion}</span><span>Guía de nutrición<small>Porciones, hidratación y qué comer alrededor del entreno</small></span></a>
     ${puede(yo.plan, 'videollamada')
       ? (linkVideollamada() ? `<a class="rapido ancho" href="${linkVideollamada()}" target="_blank" rel="noopener"><span class="ico rojo">${ICONOS.llamada}</span><span>Videollamada con Vic<small>Cada ${permisos(yo.plan).videollamada.cadaDias} días · toca para agendar</small></span></a>` : '')
@@ -376,6 +379,55 @@ function rachaSemanas(regs) {
   let n = 0; const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   for (let i = 0; i < 52; i++) { if (semanas.has(d.toISOString().slice(0, 10))) n++; else if (i > 0) break; d.setDate(d.getDate() - 7); }
   return n;
+}
+
+/* --------------------------------------------------------- Membresía */
+async function vistaMembresia(v) {
+  const semana = bloque ? semanaActual(bloque) : null;
+  const [sesiones, regs, cargas] = await Promise.all([bloque ? db.sesionesSemana(bloque.id, semana) : [], db.registros(yo.id), db.cargas(yo.id).catch(() => [])]);
+  const lunes = new Date(); lunes.setHours(0, 0, 0, 0); lunes.setDate(lunes.getDate() - ((lunes.getDay() + 6) % 7));
+  const domingo = new Date(lunes); domingo.setDate(lunes.getDate() + 6);
+  const iniISO = lunes.toISOString().slice(0, 10);
+  const hechas = sesiones.filter(s => s.registros?.[0]?.completada);
+  const rpes = hechas.map(s => s.registros[0].rpe).filter(Boolean);
+  const deSemana = cargas.filter(c => String(c.fecha) >= iniISO);
+  const volumen = deSemana.reduce((a, c) => a + Number(c.volumen || 0), 0);
+  const mejor = deSemana.reduce((m, c) => Number(c.top_kg || 0) > Number(m?.top_kg || 0) ? c : m, null);
+  const mesCorto = d => d.toLocaleDateString('es-GT', { month: 'short' }).replace('.', '');
+  const rango = lunes.getMonth() === domingo.getMonth() ? `${lunes.getDate()}–${domingo.getDate()} ${mesCorto(domingo)}` : `${lunes.getDate()} ${mesCorto(lunes)} – ${domingo.getDate()} ${mesCorto(domingo)}`;
+  const datos = [];
+  if (rpes.length) datos.push({ t: 'Esfuerzo prom.', v: (rpes.reduce((a, b) => a + b, 0) / rpes.length).toFixed(1), s: 'escala del 1 al 10' });
+  datos.push({ t: 'Racha', v: rachaSemanas(regs) + ' sem', s: 'semanas seguidas entrenando' });
+  if (volumen) datos.push({ t: 'Volumen', v: Math.round(volumen).toLocaleString('es-GT') + ' kg', s: 'levantados esta semana' });
+  if (mejor) datos.push({ t: 'Mejor carga', v: Number(mejor.top_kg).toLocaleString('es-GT') + ' kg', s: mejor.ejercicio });
+  if (datos.length < 4 && bloque) datos.push({ t: 'Bloque', v: `${semana}/${bloque.semanas}`, s: 'semanas del bloque' });
+  if (datos.length < 4) datos.push({ t: 'Plan', v: yo.plan || '—', s: 'Equipo Limitless' });
+  const info = { rango, hechas: hechas.length, total: sesiones.length, datos,
+    subtitulo: bloque ? `Semana ${semana} de ${bloque.semanas} · ${bloque.nombre.split('·').pop().trim()}` : 'Equipo Limitless',
+    nombre: yo.nombre || '', miembro: `Miembro ${numeroTxt(yo.numero)}${esFundador(yo) ? ' · Fundador' : ''} · Plan ${yo.plan || ''}` };
+
+  v.innerHTML = `
+    <p class="sec-t">Tu membresía</p>
+    ${tarjetaMiembro(yo)}
+    <p class="mb-texto">Tu número es tuyo desde el día que entraste al equipo y no se repite. ${esFundador(yo) ? 'Como fundador, tu precio se queda contigo mientras sigas activo.' : ''}</p>
+    <p class="sec-t">Tu semana en números <small style="font-weight:400;color:var(--tinta-tenue)">${rango}</small></p>
+    <div class="card semana-share">
+      <div class="semana-prev"><span class="cargando-img">Armando tu imagen…</span></div>
+      <button class="btn btn-full btn-pill btn-rojo" id="compartir" disabled>Compartir en mis historias</button>
+      <p class="tenue" style="font-size:13px;margin:10px 0 0;text-align:center">Se genera con tus datos reales de esta semana. Etiqueta a @vs_limitless.</p>
+    </div>`;
+  activarTarjeta($('.membresia', v));
+  let blob;
+  try {
+    blob = await imagenSemana(info);
+    const url = URL.createObjectURL(blob);
+    $('.semana-prev', v).innerHTML = `<img src="${url}" alt="Imagen de tu semana: ${info.hechas} de ${info.total} sesiones completadas">`;
+    $('#compartir', v).disabled = false;
+  } catch (e) { console.error(e); $('.semana-prev', v).innerHTML = '<span class="cargando-img">No se pudo generar la imagen.</span>'; }
+  $('#compartir', v).onclick = async () => {
+    const r = await compartirImagen(blob, `mi-semana-vs-limitless-${iniISO}.png`);
+    if (r === 'descargada') aviso('Imagen guardada. Súbela a tus historias.');
+  };
 }
 
 /* -------------------------------------------------------------- Plan */
