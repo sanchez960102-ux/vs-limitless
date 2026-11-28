@@ -363,3 +363,35 @@ body.con-promo .top{top:38px}
 
 .btn:active{transform:scale(.97)}
 .btn{transition:background .2s,color .2s,border-color .2s,transform .12s}
+
+/* ===== Fotografía editorial ===== */
+.banda{position:relative;overflow:hidden;background:var(--fondo)}
+.banda img{display:block;width:100%;height:min(88vh,860px);object-fit:cover}
+.banda-txt{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-start;padding-top:88px}
+.banda-txt .h-xl{max-width:none}
+.banda-credito{position:absolute;right:16px;bottom:12px;font:400 11px/1 var(--texto);letter-spacing:.08em;color:rgba(242,239,234,.55)}
+.banda-bici::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,11,11,.82) 0%,rgba(11,11,11,.25) 45%,rgba(11,11,11,0) 70%);pointer-events:none}
+.banda-bici .banda-txt,.banda-bici .banda-credito{z-index:1}
+.banda-bici img{object-position:50% 70%}
+.banda-agua img{object-position:20% 30%}
+.banda-agua .banda-txt{align-items:flex-end;justify-content:center;padding-top:0;text-align:right}
+.banda-agua .h-xl{color:#0B0B0B}
+.banda-agua .h-xl span{color:var(--rojo)}
+.banda-agua .banda-credito{color:rgba(11,11,11,.5)}
+.mosaico{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--fondo)}
+.mosaico figure{margin:0;overflow:hidden;aspect-ratio:4/5}
+.mosaico img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .8s cubic-bezier(.2,.7,.2,1)}
+.mosaico figure:hover img{transform:scale(1.03)}
+.mosaico-pie{grid-column:1/-1;display:flex;justify-content:space-between;gap:16px;margin:0;padding:18px max(24px,calc((100% - 1200px) / 2));font:500 12px/1.4 var(--texto);letter-spacing:.18em;text-transform:uppercase;color:var(--tinta-suave)}
+.mosaico-pie span{color:var(--tinta-tenue);letter-spacing:.08em;text-transform:none;font-weight:400}
+@media (max-width:900px){
+  .banda img{height:72vh}
+  .banda-txt{padding-top:64px}
+  .banda-agua img{object-position:36% 20%}
+  .banda-agua .banda-txt{position:static;align-items:flex-start;text-align:left;padding:40px 24px 56px;background:var(--fondo)}
+  .banda-agua .h-xl{color:var(--tinta)}
+  .banda-agua .banda-credito{top:12px;bottom:auto;color:rgba(11,11,11,.5)}
+  .mosaico{grid-template-columns:1fr 1fr}
+  .mosaico figure:first-child{grid-column:1/-1;aspect-ratio:4/4}
+  .mosaico-pie{flex-direction:column;padding-left:24px;padding-right:24px}
+}

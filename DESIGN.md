@@ -121,6 +121,7 @@ VS Limitless se ve como una revista deportiva cara, no como un gimnasio. El negr
 
 - **Tinta** para todo lo que se lee. **Tinta suave** para párrafos secundarios. **Tinta tenue** para etiquetas y notas.
 - **Rojo** solo cuando algo requiere acción ahora: promoción, pago vencido, el botón de aplicar en la promoción. Si todo es rojo, nada es urgente.
+- La única excepción: el remate de un titular sobre fotografía, una vez por página, como "El plan es mío."
 - **Rojo texto** (`#FF3B30`) es la variante legible para texto rojo sobre negro.
 - Verde y ámbar existen solo como estados en la app y el panel: al día, por vencer.
 - Sin degradados decorativos en la landing. La profundidad viene de la fotografía y del cambio de superficie (`fondo` → `fondo-2` → `superficie`).
@@ -147,6 +148,8 @@ VS Limitless se ve como una revista deportiva cara, no como un gimnasio. El negr
 
 ## Fotografía
 
+- Gradación de rojo selectivo: todo en blanco y negro salvo los rojos y naranjas, que se quedan a color. El jersey rojo hace de color de marca.
+- Las fotos de carrera se recortan sin el banner de patrocinadores y llevan el crédito del fotógrafo.
 - El atleta real, entrenando, en blanco y negro o con color bajo. Sudor, esfuerzo y concentración. Nada de poses de catálogo.
 - El titular puede ir encima de la foto, como Nike. La foto ocupa el ancho completo.
 - Nunca fotos de banco de imágenes con modelos. La credibilidad es la marca.
